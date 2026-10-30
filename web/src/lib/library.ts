@@ -28,3 +28,6 @@ export const displayTitle = (d: { kind: Doc['kind']; title: string }) =>
 
 const labels: Record<Doc['status'], string> = { queued: 'Queued', working: 'Processing', done: 'Ready', error: 'Failed' }
 export const statusLabel = (status: Doc['status']) => labels[status]
+
+const kinds: Record<Doc['kind'], string> = { pdf: 'PDF', office: 'Word', url: 'Web page' }
+export const kindLabel = (kind: Doc['kind']) => kinds[kind]

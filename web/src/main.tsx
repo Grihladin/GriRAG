@@ -4,7 +4,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AppShell } from '@/components/app-shell'
 import { AskBox } from '@/components/ask-box'
-import { LibraryTable } from '@/components/library-table'
+import { LibraryPage } from '@/components/library-page'
 import './index.css'
 
 const rootRoute = createRootRoute({ component: AppShell })
@@ -12,7 +12,7 @@ const askRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', compo
 const libraryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library',
-  component: LibraryTable,
+  component: LibraryPage,
 })
 const docRoute = createRoute({
   getParentRoute: () => rootRoute,
