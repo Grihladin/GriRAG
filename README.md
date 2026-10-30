@@ -10,9 +10,10 @@ prompt is adapted from PixelRAG's `SYSTEM_PROMPT_EVIDENCE_QA`. See `PLAN.md` for
 
 ## Setup
 
-Needs uv, Docker Desktop (with the default 4 GB VM) and an OpenRouter account with a few dollars of credit.
+Needs uv, Node.js, Docker Desktop (with the default 4 GB VM) and an OpenRouter account with a few dollars of credit.
 
-1. `make setup` creates `.venv`, `.env` from `.env.example`, and `data/`.
+1. `make setup` creates `.venv`, installs the web UI's packages (`web/node_modules`), and creates `.env` from
+   `.env.example` and `data/`.
 2. Put your key from https://openrouter.ai/settings/keys into `.env` as `OPENROUTER_API_KEY`.
 3. `make smoke` checks the embedder and the answer model live (5 requests, about $0.01).
 4. Only if you switch to `:free` models: on https://openrouter.ai/settings/privacy, enable free endpoints that
@@ -20,7 +21,8 @@ Needs uv, Docker Desktop (with the default 4 GB VM) and an OpenRouter account wi
 
 ## Daily use
 
-- `make run` starts Docker Desktop if needed, then Gotenberg and Qdrant, then the app on http://127.0.0.1:8000.
+- `make run` starts Docker Desktop if needed, then Gotenberg and Qdrant, rebuilds the web UI (`web/dist`) if its
+  sources changed, then serves the app on http://127.0.0.1:8000.
 - **Add:** choose PDF/DOCX files and/or paste http(s) links (one per line), then Add. Links to a PDF or DOCX file
   are downloaded; other links are screenshotted at 1120 px wide and cut into 1120 × 1120 pages. The library
   shows progress and refreshes by itself while something is being processed.
@@ -33,6 +35,15 @@ Needs uv, Docker Desktop (with the default 4 GB VM) and an OpenRouter account wi
 - `make reembed` (app stopped) re-embeds everything from the stored page images, after changing `EMBED_MODEL`
   or another embedding setting, or if the Qdrant data was lost. It prints the request count and asks first.
 - `make test` runs the unit tests (no network, no Docker).
+
+## Web UI development
+
+The UI in `web/` is React + Vite + TanStack Router/Query + shadcn/ui. It talks to the JSON API under `/api`
+in `app/main.py`; FastAPI serves the built `web/dist` at `/`.
+
+- Run `make run` in one terminal and `cd web && npm run dev` in another, then open http://localhost:5173.
+  Vite reloads on save and proxies `/api` and `/files` to the app on port 8000.
+- `cd web && npm run build` type-checks and builds; `npx shadcn@latest add <component>` adds a component.
 
 ## Models and cost
 
