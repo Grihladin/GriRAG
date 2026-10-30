@@ -578,7 +578,7 @@ Whether the Gemma endpoint accepts a `system` message is unverified, and M0 test
 
 ## 7. Web UI
 
-> Replaced after v1 by a React app in `web/` on a JSON API under `/api` (§15, "Web UI v2"). The behaviour below still applies.
+> Replaced after v1 by a React app in `web/` on a JSON API under `/api` (§15, "Web UI v2"), then redesigned as a small app with several views (§15, "Web UI v3"). The behaviour below (polling, statuses, retry/delete rules) still applies.
 
 **Stack:** FastAPI + Jinja2 templates + htmx 2.0.11, vendored as `app/static/htmx.min.js` (52,182 bytes, from `https://unpkg.com/htmx.org@2.0.11/dist/htmx.min.js`, committed). Routes are plain `def`, so FastAPI runs them in its thread pool and blocking `httpx` calls are fine. Each request gets its own SQLite connection through a `get_conn()` dependency (WAL, `busy_timeout=5000`). Run a single process: `uvicorn app.main:app --host 127.0.0.1 --port 8000`, with no `--workers`.
 
@@ -1119,3 +1119,23 @@ Recorded while building; each item is the smallest fix to the plan above.
 - **M2: very tall pages come back empty, not as a 500.** For `History_of_the_United_States`, Gotenberg answered HTTP 200 with 0 bytes (risk 13). Fallback in `url_to_screenshot` (~6 lines): on an empty body, capture again with `clip=true` and `height = MAX_WEB_PAGES × WEB_SLICE_HEIGHT` (44,800 px), which crops the top of the page; the document gets the warning "page too tall to capture in one shot; only the first 40 pages are kept". Side effect: during that capture the viewport is 44,800 px tall, so `100vh` sections would be stretched (Wikipedia has none). Pages 20 and 40 showed article text with images loaded, no blank areas. Tile-by-tile capture stays on the Later list.
 - **M2: the title link of a PDF link document** goes to `doc.pdf` (it has no `source.jpg`); search hits carry `file_url`.
 - **Web UI v2, 2026-10-30: the htmx page became a React app in `web/`** (Vite, TanStack Router and Query, shadcn/ui; user decision). The htmx routes, the Jinja2 templates, the vendored htmx and the `jinja2` dependency are gone. FastAPI now has JSON routes that call the same functions: `GET /api/library` (documents with a `waiting` flag, the banner, and `poll_ms` = 2000 / 30000 / null, so the polling rule stays on the server), `GET /api/quota`, `POST /api/add` (multipart; returns `added`, `duplicates` and the `rejected` messages), `GET /api/search?q=`, `POST /api/ask` (JSON `{"q": ...}`), `POST /api/docs/{id}/retry` and `DELETE /api/docs/{id}`. User-facing errors stay 200 responses with a `message`. The lifespan mounts `web/dist` at `/` after `/files`, since a mount at `/` catches every path after it. `make run` rebuilds `web/dist` when its sources change; for development, Vite proxies `/api` and `/files` to port 8000.
+- **Web UI v3, 2026-10-30: from one long page to an app with views** (user verdict on v2: "horrible UX").
+  - **Routes:** `/` is Ask (Enter asks; an Ask | Search switch searches only), with the question in the URL
+    (`?q=…&mode=search`). `/library` lists the documents and `/docs/{id}` shows one with all its pages
+    (`?page=N` opens the viewer).
+  - **Add** is a dialog from the top bar; files dropped anywhere open it, and an empty library shows the same
+    panel as its home page.
+  - **Page viewer:** citations [S1]–[S3] in the answer and every thumbnail open the page large in a dialog,
+    with ←/→ through its document.
+  - **Answers** are rendered as Markdown (`react-markdown`, the one new dependency; raw HTML off). The
+    citations are rewritten to `#cite-N` links and drawn as buttons.
+  - **Library query in the top bar:** it lives in the app shell, so polling and the "Processing N / N
+    failed" hint stay live on every page.
+  - Answers and searches are cached for the session. Reloading a `/?q=` page asks again (user decision).
+  - Dark mode follows the system, with a toggle (stored in `localStorage`).
+  - **API changes:**
+    - Each library document has `file_url` (`doc.pdf` or `source.jpg`, `null` until it exists). A link to a PDF
+      is `kind: url` with a `doc.pdf`, so the client cannot derive it.
+    - `/api/ask` also returns the search `groups` it already computed.
+    - FastAPI serves `index.html` for client routes such as `/library` on reload (`SPAFiles`: a 404 for a path
+      without a file extension and outside `api/`).

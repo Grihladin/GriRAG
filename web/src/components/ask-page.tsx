@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { RotateCwIcon, SearchIcon, SparklesIcon } from 'lucide-react'
@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { isProcessing, useLibrary } from '@/lib/library'
+import { useTitle } from '@/lib/title'
 
 type Mode = 'ask' | 'search'
 
@@ -24,17 +25,18 @@ type Mode = 'ask' | 'search'
 export function AskPage() {
   const { q, mode = 'ask' } = useSearch({ from: '/' })
   const library = useLibrary()
+  useTitle(q || 'Ask')
   if (q) return <Results key={`${mode}:${q}`} q={q} mode={mode} />
   if (library.isSuccess && !library.data.docs.length) return <FirstRun />
   const docs = library.data?.docs ?? []
   const pages = docs.reduce((n, d) => n + (d.page_count ?? 0), 0)
   const processing = docs.filter(isProcessing).length
   return (
-    <div className="mx-auto max-w-2xl space-y-4 pt-[12vh] text-center">
-      <h1 className="text-2xl font-semibold">Ask your documents</h1>
+    <div className="mx-auto max-w-2xl space-y-4 pt-[12vh]">
+      <h1 className="text-center text-2xl font-semibold">Ask your documents</h1>
       <AskForm mode={mode} />
       {docs.length > 0 && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-center text-sm text-muted-foreground">
           {docs.length} {docs.length === 1 ? 'document' : 'documents'} · {pages} pages · answers cite the 3 best
           pages
           {processing > 0 && ` · ${processing} still processing; they can be found once they are ready`}
@@ -68,6 +70,20 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
   const queryClient = useQueryClient()
   const [text, setText] = useState(q)
   const [m, setM] = useState(mode)
+  const input = useRef<HTMLInputElement>(null)
+
+  // "/" focuses the box from anywhere on the page, as on most search sites.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const typing = e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable]')
+      if (e.key === '/' && !typing) {
+        e.preventDefault()
+        input.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [])
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -81,6 +97,7 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
   return (
     <form onSubmit={submit} className="flex gap-2">
       <Input
+        ref={input}
         autoFocus
         value={text}
         onChange={(e) => setText(e.target.value)}

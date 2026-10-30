@@ -8,9 +8,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useOpenAdd } from '@/lib/add-context'
 import { displayTitle, useDocAction, useLibrary } from '@/lib/library'
+import { useTitle } from '@/lib/title'
 
 export function LibraryPage() {
   const library = useLibrary()
+  useTitle('Library')
   const action = useDocAction()
   const docs = library.data?.docs ?? []
   const pages = docs.reduce((n, d) => n + (d.page_count ?? 0), 0)

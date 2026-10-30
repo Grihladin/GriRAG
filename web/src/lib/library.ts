@@ -8,6 +8,7 @@ export function useLibrary() {
     queryKey: ['library'],
     queryFn: api.library,
     refetchInterval: (query) => query.state.data?.poll_ms ?? false,
+    refetchOnWindowFocus: true, // cheap, and catches changes made while polling was stopped
   })
 }
 

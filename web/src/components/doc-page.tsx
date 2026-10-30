@@ -8,6 +8,7 @@ import { Warning } from '@/components/warning'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { displayTitle, kindLabel, useDocAction, useLibrary } from '@/lib/library'
+import { useTitle } from '@/lib/title'
 
 // /docs/$id: one document with all its pages; ?page=N opens the page viewer.
 export function DocPage() {
@@ -17,6 +18,7 @@ export function DocPage() {
   const library = useLibrary()
   const action = useDocAction()
   const doc = library.data?.docs.find((d) => d.id === id)
+  useTitle(doc ? displayTitle(doc) : 'Document')
   const back = (
     <Link to="/library" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
       <ArrowLeftIcon className="size-4" /> Library
