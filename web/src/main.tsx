@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { AddForm } from '@/components/add-form'
 import { AppShell } from '@/components/app-shell'
 import { AskBox } from '@/components/ask-box'
 import { LibraryTable } from '@/components/library-table'
@@ -13,14 +12,14 @@ const askRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', compo
 const libraryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library',
-  component: () => (
-    <div className="space-y-6">
-      <AddForm />
-      <LibraryTable />
-    </div>
-  ),
+  component: LibraryTable,
 })
-const router = createRouter({ routeTree: rootRoute.addChildren([askRoute, libraryRoute]) })
+const docRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/docs/$id',
+  component: () => <p>Document #{docRoute.useParams().id}</p>,
+})
+const router = createRouter({ routeTree: rootRoute.addChildren([askRoute, libraryRoute, docRoute]) })
 
 declare module '@tanstack/react-router' {
   interface Register {

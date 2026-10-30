@@ -25,3 +25,6 @@ export const isProcessing = (d: Doc) => d.status === 'working' || (d.status === 
 // Links show without their scheme: "en.wikipedia.org/wiki/PDF".
 export const displayTitle = (d: { kind: Doc['kind']; title: string }) =>
   d.kind === 'url' ? d.title.replace(/^https?:\/\/(www\.)?/, '') : d.title
+
+const labels: Record<Doc['status'], string> = { queued: 'Queued', working: 'Processing', done: 'Ready', error: 'Failed' }
+export const statusLabel = (status: Doc['status']) => labels[status]
