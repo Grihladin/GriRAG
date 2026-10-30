@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PixelRAG</title>
+<script src="/static/htmx.min.js"></script>
+<style>
+  body { font: 15px/1.4 system-ui, sans-serif; margin: 1.5rem auto; max-width: 70rem; padding: 0 1rem; }
+  header { display: flex; justify-content: space-between; align-items: baseline; }
+  form.row { display: flex; gap: .5rem; align-items: flex-start; margin: .5rem 0; }
+  textarea { width: 26rem; height: 2.4rem; }
+  input[name=q] { flex: 1; padding: .3rem; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: .3rem .5rem; border-bottom: 1px solid #ddd; vertical-align: top; }
+  .muted { color: #666; font-size: 90%; }
+  .notice { background: #f4f4f4; padding: .4rem .6rem; margin: .5rem 0; }
+  .banner { background: #fff3cd; padding: .4rem .6rem; margin: .5rem 0; }
+  .error { color: #a00; }
+  .htmx-indicator { display: none; } .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline; }
+  .group { margin: .8rem 0; } .thumbs { display: flex; gap: .6rem; flex-wrap: wrap; }
+  .thumbs figure { margin: 0; } .thumbs img { border: 1px solid #ccc; }
+  pre.answer { white-space: pre-wrap; font: inherit; background: #f8f8f8; padding: .6rem; }
+  button.link { background: none; border: none; color: #06c; cursor: pointer; padding: 0 .3rem; }
+</style>
+</head>
+<body>
+<header><h2>PixelRAG (personal)</h2>{% if quota %}<span class="muted">{{ quota }}</span>{% endif %}</header>
+
+{% if added or dupes or rejected %}<div class="notice">
+  {% if added %}Added {{ added }}. {% endif %}
+  {% for d in dupes %}Already in library as #{{ d.id }} ({{ d.status }}); delete it first to refresh. {% endfor %}
+  {% if rejected %}Rejected {{ rejected }} (only .pdf/.docx files and http(s) links). {% endif %}
+</div>{% endif %}
+
+<form class="row" action="/add" method="post" enctype="multipart/form-data">
+  <b>Add:</b>
+  <input type="file" name="files" multiple accept=".pdf,.docx">
+  <textarea name="urls" placeholder="links, one per line"></textarea>
+  <button>Add</button>
+</form>
+
+<form class="row" hx-get="/search" hx-target="#results" hx-indicator="#working">
+  <b>Ask:</b>
+  <input name="q" required placeholder="Ask or search your documents">
+  <button>Search</button>
+  <button type="button" hx-post="/ask" hx-include="closest form" hx-target="#results" hx-indicator="#working">Ask</button>
+  <span id="working" class="htmx-indicator muted">working…</span>
+</form>
+<div id="results"></div>
+
+<h3>Library</h3>
+{% include "_library.html" %}
+</body>
+</html>

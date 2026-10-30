@@ -1,0 +1,31 @@
+name: pixelrag
+services:
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0          # native arm64
+    ports:
+      - "127.0.0.1:3100:3000"
+    environment:
+      API_TIMEOUT: "300s"                      # app's httpx timeout is 330 s
+      API_DISABLE_DOWNLOAD_FROM: "true"
+      WEBHOOK_DISABLE: "true"
+      CHROMIUM_MAX_CONCURRENCY: "1"
+      CHROMIUM_IDLE_SHUTDOWN_TIMEOUT: "5m"
+      LIBREOFFICE_IDLE_SHUTDOWN_TIMEOUT: "5m"
+      CHROMIUM_DENY_PRIVATE_IPS: "true"        # Chromium runs --no-sandbox; keeps pages away from Qdrant, the Mac, the LAN
+      LIBREOFFICE_DENY_PRIVATE_IPS: "true"
+      # Default file:// rule first (setting the variable REPLACES Gotenberg's default list),
+      # then common cookie-consent vendors, so their banners never load.
+      CHROMIUM_DENY_LIST: '^file:(?!//\/tmp/).*,^https?://([a-z0-9-]+\.)*(cookielaw\.org|onetrust\.com|cookiebot\.com|usercentrics\.eu|privacy-center\.org|privacy-mgmt\.com|consentmanager\.net|quantcast\.com|trustarc\.com)(:|/)'
+    mem_limit: 2g
+    security_opt:
+      - no-new-privileges:true
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    ports:
+      - "127.0.0.1:6333:6333"
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+      QDRANT__SERVICE__ENABLE_CORS: "false"    # CORS is on by default: any website could read localhost:6333
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+    mem_limit: 1g
