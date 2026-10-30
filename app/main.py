@@ -11,6 +11,7 @@ from pathlib import Path
 import httpx
 from fastapi import Body, Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException
 from qdrant_client import QdrantClient
 from starlette.concurrency import run_in_threadpool
 
@@ -64,12 +65,16 @@ def search(deps: ingest.Deps, conn, q: str) -> list[list[Hit]] | str:
     ids = [g.id for g in groups]
     rows = {r["id"]: r for r in conn.execute(
         f"SELECT id, title, kind, source FROM documents WHERE id IN ({','.join('?' * len(ids))})", ids)}
-    def file_url(doc_id: int) -> str:
-        pdf = (store.doc_dir(deps.cfg, doc_id) / "doc.pdf").exists()
-        return f"/files/{doc_id}/{'doc.pdf' if pdf else 'source.jpg'}"
-
     return [[Hit(g.id, h.payload["page"], h.score, rows[g.id]["title"], rows[g.id]["kind"], rows[g.id]["source"],
-                 file_url(g.id)) for h in g.hits] for g in groups if g.id in rows]
+                 file_url(deps.cfg, g.id) or "") for h in g.hits] for g in groups if g.id in rows]
+
+
+def file_url(cfg, doc_id: int) -> str | None:
+    """The whole document: doc.pdf (PDF, DOCX, PDF links), or source.jpg (screenshotted web pages); None until it exists."""
+    for name in ("doc.pdf", "source.jpg"):
+        if (store.doc_dir(cfg, doc_id) / name).exists():
+            return f"/files/{doc_id}/{name}"
+    return None
 
 
 def user_message(e: RateLimited) -> str:
@@ -83,6 +88,7 @@ class Answer:
     text: str
     sources: list[Hit]
     model: str
+    groups: list[list[Hit]]          # every matching page, as search() returns them
 
 
 def ask(deps: ingest.Deps, conn, question: str) -> Answer | str:
@@ -102,7 +108,7 @@ def ask(deps: ingest.Deps, conn, question: str) -> Answer | str:
         return user_message(e)
     except (DocError, Paused) as e:
         return str(e)
-    return Answer(re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip(), sources, model)
+    return Answer(re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip(), sources, model, groups)
 
 
 def build_messages(question: str, pages: list[tuple[str, bytes]]) -> list[dict]:
@@ -145,7 +151,7 @@ async def lifespan(app: FastAPI):
     app.state.deps, app.state.worker = deps, worker
     app.mount("/files", StaticFiles(directory=cfg.data_dir / "docs"), name="files")
     if (WEB_DIST / "index.html").exists():      # last: a mount at "/" catches everything after it
-        app.mount("/", StaticFiles(directory=WEB_DIST, html=True), name="web")
+        app.mount("/", SPAFiles(directory=WEB_DIST, html=True), name="web")
     else:
         log.warning("web/dist not built; run make web (or use the Vite dev server)")
     try:
@@ -155,6 +161,18 @@ async def lifespan(app: FastAPI):
         deps.wake.set()
         worker.join(timeout=2)
         lock.close()
+
+
+class SPAFiles(StaticFiles):
+    """web/dist. Other paths without a file extension get index.html, so client routes like /library survive a reload."""
+
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as e:
+            if e.status_code != 404 or path.split("/")[0] == "api" or "." in path.rsplit("/", 1)[-1]:
+                raise
+            return await super().get_response("index.html", scope)
 
 
 app = FastAPI(lifespan=lifespan)
@@ -182,9 +200,9 @@ def fmt_time(ts) -> str:
 def library(request: Request, conn=Depends(get_conn)):
     """Documents, the worker banner, and how often the UI should poll (null: stop)."""
     now = time.time()
-    docs = [{**dict(r), "waiting": r["status"] == "queued" and (r["next_attempt_at"] or 0) > now}
-            for r in store.list_docs(conn)]
     deps, worker = request.app.state.deps, request.app.state.worker
+    docs = [{**dict(r), "waiting": r["status"] == "queued" and (r["next_attempt_at"] or 0) > now,
+             "file_url": file_url(deps.cfg, r["id"])} for r in store.list_docs(conn)]
     banner = None
     if not worker.is_alive():
         banner = "Worker stopped; see the log and restart"
@@ -261,9 +279,9 @@ def search_route(q: str = "", deps: ingest.Deps = Depends(get_deps), conn=Depend
 def ask_route(q: str = Body("", embed=True), deps: ingest.Deps = Depends(get_deps), conn=Depends(get_conn)):
     result = ask(deps, conn, q)
     if isinstance(result, str):
-        return {"answer": None, "message": result}
+        return {"answer": None, "groups": [], "message": result}
     return {"answer": {"text": result.text, "model": result.model, "sources": [hit_json(h) for h in result.sources]},
-            "message": None}
+            "groups": [[hit_json(h) for h in g] for g in result.groups], "message": None}
 
 
 @app.post("/api/docs/{doc_id}/retry")

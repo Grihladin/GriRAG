@@ -4,10 +4,11 @@ import time
 
 import httpx
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app import Paused, store
-from app.main import app
+from app.main import SPAFiles, app
 from tests.conftest import FIXTURES, FakeOpenRouter
 from tests.test_query import library, query_matching
 
@@ -43,6 +44,7 @@ def test_library_poll_interval(client, deps, conn):
     lib = client.get("/api/library").json()
     assert [(d["id"], d["status"]) for d in lib["docs"]] == [(3, "queued"), (2, "queued"), (1, "done")]
     assert lib["docs"][2]["pages_embedded"] == 3 and lib["poll_ms"] == 2000
+    assert [d["file_url"] for d in lib["docs"]] == [None, None, "/files/1/doc.pdf"]
     set_row(conn, 2, next_attempt_at=time.time() + 3600, message="daily free quota reached; resumes 01:01")
     set_row(conn, 3, status="error", message="boom")
     lib = client.get("/api/library").json()
@@ -121,13 +123,14 @@ def test_ask(client, deps, conn):
     assert body["answer"]["text"] == "The total is 4,312 EUR [S1]." and body["answer"]["model"] == deps.cfg.answer_model
     assert [s["image_url"] for s in body["answer"]["sources"]][0] == "/files/1/pages/0002.jpg"
     assert len(body["answer"]["sources"]) == 3
+    assert [len(g) for g in body["groups"]] == [3, 3] and body["groups"][0][0]["image_url"] == "/files/1/pages/0002.jpg"
 
 
 def test_ask_messages(client, deps, conn):
-    assert client.post("/api/ask", json={}).json() == {"answer": None, "message": "Type a question first."}
+    assert client.post("/api/ask", json={}).json() == {"answer": None, "groups": [], "message": "Type a question first."}
     library(deps, conn, "sample.pdf")
     deps.openrouter.error = Paused("OpenRouter error: provider died")
-    assert client.post("/api/ask", json={"q": "total"}).json() == {"answer": None,
+    assert client.post("/api/ask", json={"q": "total"}).json() == {"answer": None, "groups": [],
                                                                     "message": "OpenRouter error: provider died"}
 
 
@@ -163,3 +166,16 @@ def test_delete(client, deps, conn):
     assert store.get(conn, 1) is None and not store.doc_dir(deps.cfg, 1).exists()
     assert deps.qc.count("pages").count == 0
     assert client.delete("/api/docs/1").json() == {"message": None}          # already gone: nothing to report
+
+
+# ---------------------------------------------------------------- web UI files
+
+def test_spa_fallback(tmp_path):
+    (tmp_path / "index.html").write_text("app")
+    (tmp_path / "app.js").write_text("js")
+    web = FastAPI()
+    web.mount("/", SPAFiles(directory=tmp_path, html=True))
+    c = TestClient(web)
+    assert c.get("/").text == c.get("/library").text == c.get("/docs/3").text == "app"
+    assert c.get("/app.js").text == "js"
+    assert c.get("/missing.js").status_code == c.get("/api/nope").status_code == 404
