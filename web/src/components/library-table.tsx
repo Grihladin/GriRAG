@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type Doc } from '@/api'
+import { type Doc } from '@/api'
+import { useDocAction, useLibrary } from '@/lib/library'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -19,21 +19,10 @@ import { Progress } from '@/components/ui/progress'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 export function LibraryTable() {
-  const queryClient = useQueryClient()
-  // The server says how often to poll: 2 s while something can be worked on, 30 s while only waiting, else stop.
-  const library = useQuery({
-    queryKey: ['library'],
-    queryFn: api.library,
-    refetchInterval: (query) => query.state.data?.poll_ms ?? false,
-  })
-  const action = useMutation({
-    mutationFn: ({ id, kind }: { id: number; kind: 'retry' | 'delete' }) =>
-      kind === 'retry' ? api.retry(id) : api.remove(id),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['library'] }),
-  })
+  const library = useLibrary()
+  const action = useDocAction()
 
   const notice = action.data?.message ? `#${action.variables?.id}: ${action.data.message}` : action.error?.message
-  const banner = library.data?.banner
   const docs = library.data?.docs ?? []
   return (
     <Card>
@@ -46,7 +35,7 @@ export function LibraryTable() {
             <AlertDescription>Could not load the library: {library.error.message}</AlertDescription>
           </Alert>
         )}
-        {[banner, notice].filter(Boolean).map((text) => (
+        {[notice].filter(Boolean).map((text) => (
           <Alert key={text} className="border-amber-300 bg-amber-50 text-amber-900">
             <AlertDescription className="text-amber-900">{text}</AlertDescription>
           </Alert>
