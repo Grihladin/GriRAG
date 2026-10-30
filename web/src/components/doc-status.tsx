@@ -5,7 +5,8 @@ import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
 
 // Converting → Embedding k/n → Ready, or Queued, Waiting (rate limit) and Failed, with the server's message.
-export function DocStatus({ doc: d }: { doc: Doc }) {
+// clamp: the message is cut to 2 lines (library table); the document page shows it whole.
+export function DocStatus({ doc: d, clamp = true }: { doc: Doc; clamp?: boolean }) {
   if (d.status === 'working' && d.page_count === null) return <Label icon={<Spinner />}>Converting</Label>
   if (d.status === 'working')
     return (
@@ -31,7 +32,7 @@ export function DocStatus({ doc: d }: { doc: Doc }) {
         </Label>
       )}
       {d.message && (
-        <p className="line-clamp-2 text-xs text-muted-foreground" title={d.message}>
+        <p className={`text-xs text-muted-foreground ${clamp ? 'line-clamp-2' : ''}`} title={d.message}>
           {d.message}
         </p>
       )}

@@ -4,6 +4,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AppShell } from '@/components/app-shell'
 import { AskBox } from '@/components/ask-box'
+import { DocPage } from '@/components/doc-page'
 import { LibraryPage } from '@/components/library-page'
 import './index.css'
 
@@ -17,7 +18,11 @@ const libraryRoute = createRoute({
 const docRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/docs/$id',
-  component: () => <p>Document #{docRoute.useParams().id}</p>,
+  component: DocPage,
+  validateSearch: (s: Record<string, unknown>): { page?: number } => {
+    const page = Number(s.page)
+    return Number.isInteger(page) && page > 0 ? { page } : {}
+  },
 })
 const router = createRouter({ routeTree: rootRoute.addChildren([askRoute, libraryRoute, docRoute]) })
 
