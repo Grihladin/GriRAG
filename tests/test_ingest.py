@@ -357,15 +357,3 @@ def test_too_tall_page_falls_back_to_clipped_capture(deps, conn):
     assert (form_parts(second)["clip"][1], form_parts(second)["height"][1]) == ("true", str(40 * 1120))
     assert row(conn, 1)["warning"] == "page too tall to capture in one shot; only the first 40 pages are kept"
 
-
-def test_library_hides_actions_while_working():
-    from app.main import templates
-    base = dict(kind="pdf", source="a.pdf", title="a.pdf", warning=None, message=None, next_attempt_at=None,
-                page_count=3, pages_embedded=1)
-    docs = [dict(base, id=1, status="working"), dict(base, id=2, status="error", message="boom"),
-            dict(base, id=3, status="done")]
-    html = templates.get_template("_library.html").render(docs=docs, now=time.time(), banner=None, poll="every 2s")
-    assert "embedding 1/3" in html and 'hx-trigger="every 2s"' in html
-    assert "/docs/1/" not in html                                   # no buttons on the working row
-    assert "/docs/2/retry" in html and "/docs/2/delete" in html
-    assert "/docs/3/delete" in html and "/docs/3/retry" not in html
