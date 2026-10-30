@@ -1,8 +1,9 @@
 RUN = uv run --env-file .env
-.PHONY: setup up down run test smoke reembed
+.PHONY: setup up down web run test smoke reembed
 
 setup:          ## once
 	uv sync
+	cd web && npm ci
 	test -f .env || cp .env.example .env
 	mkdir -p data/qdrant data/docs data/tmp
 
@@ -15,7 +16,15 @@ up:             ## start Docker Desktop if needed, then Gotenberg + Qdrant, wait
 down:           ## stop containers (frees the Docker VM memory)
 	docker compose stop
 
-run: up         ## web app on http://127.0.0.1:8000
+web: web/dist/index.html    ## build the UI (web/) if its sources changed
+
+web/node_modules/.package-lock.json: web/package-lock.json
+	cd web && npm ci
+
+web/dist/index.html: web/node_modules/.package-lock.json web/index.html web/vite.config.ts $(shell find web/src -type f)
+	cd web && npm run build
+
+run: up web     ## web app on http://127.0.0.1:8000
 	$(RUN) uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 test:           ## unit tests, no network, no Docker

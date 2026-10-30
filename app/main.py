@@ -4,15 +4,14 @@ import re
 import threading
 import time
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
 import httpx
-from fastapi import Depends, FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import Body, Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException
 from qdrant_client import QdrantClient
 from starlette.concurrency import run_in_threadpool
 
@@ -23,7 +22,7 @@ from app.openrouter import OpenRouter, next_utc_midnight
 
 log = logging.getLogger("app.main")
 HERE = Path(__file__).parent
-templates = Jinja2Templates(directory=HERE / "templates")
+WEB_DIST = HERE.parent / "web" / "dist"
 
 SYSTEM_PROMPT = """You answer questions using only the document pages shown as images.
 Each image is preceded by a label such as [S1].
@@ -66,12 +65,16 @@ def search(deps: ingest.Deps, conn, q: str) -> list[list[Hit]] | str:
     ids = [g.id for g in groups]
     rows = {r["id"]: r for r in conn.execute(
         f"SELECT id, title, kind, source FROM documents WHERE id IN ({','.join('?' * len(ids))})", ids)}
-    def file_url(doc_id: int) -> str:
-        pdf = (store.doc_dir(deps.cfg, doc_id) / "doc.pdf").exists()
-        return f"/files/{doc_id}/{'doc.pdf' if pdf else 'source.jpg'}"
-
     return [[Hit(g.id, h.payload["page"], h.score, rows[g.id]["title"], rows[g.id]["kind"], rows[g.id]["source"],
-                 file_url(g.id)) for h in g.hits] for g in groups if g.id in rows]
+                 file_url(deps.cfg, g.id) or "") for h in g.hits] for g in groups if g.id in rows]
+
+
+def file_url(cfg, doc_id: int) -> str | None:
+    """The whole document: doc.pdf (PDF, DOCX, PDF links), or source.jpg (screenshotted web pages); None until it exists."""
+    for name in ("doc.pdf", "source.jpg"):
+        if (store.doc_dir(cfg, doc_id) / name).exists():
+            return f"/files/{doc_id}/{name}"
+    return None
 
 
 def user_message(e: RateLimited) -> str:
@@ -85,6 +88,7 @@ class Answer:
     text: str
     sources: list[Hit]
     model: str
+    groups: list[list[Hit]]          # every matching page, as search() returns them
 
 
 def ask(deps: ingest.Deps, conn, question: str) -> Answer | str:
@@ -104,7 +108,7 @@ def ask(deps: ingest.Deps, conn, question: str) -> Answer | str:
         return user_message(e)
     except (DocError, Paused) as e:
         return str(e)
-    return Answer(re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip(), sources, model)
+    return Answer(re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip(), sources, model, groups)
 
 
 def build_messages(question: str, pages: list[tuple[str, bytes]]) -> list[dict]:
@@ -146,6 +150,10 @@ async def lifespan(app: FastAPI):
     worker.start()
     app.state.deps, app.state.worker = deps, worker
     app.mount("/files", StaticFiles(directory=cfg.data_dir / "docs"), name="files")
+    if (WEB_DIST / "index.html").exists():      # last: a mount at "/" catches everything after it
+        app.mount("/", SPAFiles(directory=WEB_DIST, html=True), name="web")
+    else:
+        log.warning("web/dist not built; run make web (or use the Vite dev server)")
     try:
         yield
     finally:
@@ -155,8 +163,19 @@ async def lifespan(app: FastAPI):
         lock.close()
 
 
+class SPAFiles(StaticFiles):
+    """web/dist. Other paths without a file extension get index.html, so client routes like /library survive a reload."""
+
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as e:
+            if e.status_code != 404 or path.split("/")[0] == "api" or "." in path.rsplit("/", 1)[-1]:
+                raise
+            return await super().get_response("index.html", scope)
+
+
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
 
 def get_deps(request: Request) -> ingest.Deps:
@@ -171,122 +190,105 @@ def get_conn(deps: ingest.Deps = Depends(get_deps)):
         conn.close()
 
 
-# ---------------------------------------------------------------- library view
+def fmt_time(ts) -> str:
+    return datetime.fromtimestamp(ts).strftime("%H:%M") if ts else ""
 
-def library_context(request: Request, conn) -> dict:
+
+# ---------------------------------------------------------------- JSON API for web/ (PLAN.md §7)
+
+@app.get("/api/library")
+def library(request: Request, conn=Depends(get_conn)):
+    """Documents, the worker banner, and how often the UI should poll (null: stop)."""
     now = time.time()
-    rows = store.list_docs(conn)
-    claimable = any(r["status"] == "working" or (r["status"] == "queued" and (r["next_attempt_at"] or 0) <= now)
-                    for r in rows)
-    waiting = any(r["status"] == "queued" for r in rows)
     deps, worker = request.app.state.deps, request.app.state.worker
+    docs = [{**dict(r), "waiting": r["status"] == "queued" and (r["next_attempt_at"] or 0) > now,
+             "file_url": file_url(deps.cfg, r["id"])} for r in store.list_docs(conn)]
     banner = None
     if not worker.is_alive():
         banner = "Worker stopped; see the log and restart"
     elif deps.status.paused:
         banner = f"Worker paused: {deps.status.paused}; retrying {fmt_time(deps.status.until)}"
-    return {"request": request, "docs": rows, "now": now, "banner": banner,
-            "poll": "every 2s" if claimable else "every 30s" if waiting else None}
+    claimable = any(d["status"] == "working" or (d["status"] == "queued" and not d["waiting"]) for d in docs)
+    waiting = any(d["status"] == "queued" for d in docs)
+    return {"docs": docs, "banner": banner, "poll_ms": 2000 if claimable else 30000 if waiting else None}
 
 
-def fmt_time(ts) -> str:
-    return datetime.fromtimestamp(ts).strftime("%H:%M") if ts else ""
-
-
-templates.env.filters["hhmm"] = fmt_time
-
-
-def quota_line(deps: ingest.Deps) -> str | None:
+@app.get("/api/quota")
+def quota(deps: ingest.Deps = Depends(get_deps)):
+    """Free-request line, only when a :free model is configured. Separate so polling never calls OpenRouter."""
     if not any(m.endswith(":free") for m in (deps.cfg.embed_model, deps.cfg.answer_model)):
-        return None
+        return {"quota": None}
     q = deps.openrouter.free_quota()
-    if not q:
-        return None
-    return f"Free requests today: {q['used']}/{q['limit']} used (resets {fmt_time(next_utc_midnight())})"
+    return {"quota": q and f"Free requests today: {q['used']}/{q['limit']} used "
+                           f"(resets {fmt_time(next_utc_midnight())})"}
 
 
-# ---------------------------------------------------------------- routes
-
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request, added: int = 0, dupes: str = "", rejected: int = 0,
-          deps: ingest.Deps = Depends(get_deps), conn=Depends(get_conn)):
-    dupe_rows = [r for i in dupes.split(",") if i.isdigit() and (r := store.get(conn, int(i)))]
-    return templates.TemplateResponse(request, "index.html", {
-        **library_context(request, conn), "quota": quota_line(deps),
-        "added": added, "dupes": dupe_rows, "rejected": rejected})
-
-
-@app.post("/add")
+@app.post("/api/add")
 async def add(request: Request, deps: ingest.Deps = Depends(get_deps)):
+    """Multipart: files (multiple) and urls (one per line)."""
     form = await request.form()
     files = [f for f in form.getlist("files") if getattr(f, "filename", None)]
     urls = [u for u in str(form.get("urls") or "").splitlines() if u.strip()]
 
     def work():
-        added, dupes, rejected = 0, [], 0
+        result = {"added": 0, "duplicates": [], "rejected": []}
         conn = deps.connect()
+
+        def record(add):
+            try:
+                doc_id, created = add()
+            except ingest.Rejected as e:
+                log.info("rejected: %s", e)
+                result["rejected"].append(str(e))
+                return
+            if created:
+                result["added"] += 1
+            else:
+                r = store.get(conn, doc_id)
+                result["duplicates"].append({"id": doc_id, "title": r["title"], "status": r["status"]})
+
         try:
             for f in files:
-                try:
-                    doc_id, created = ingest.add_file(conn, deps.cfg, f.filename, f.file)
-                except ingest.Rejected as e:
-                    log.info("rejected: %s", e)
-                    rejected += 1
-                    continue
-                added, dupes = (added + 1, dupes) if created else (added, dupes + [doc_id])
+                record(lambda: ingest.add_file(conn, deps.cfg, f.filename, f.file))
             for u in urls:
-                try:
-                    doc_id, created = ingest.add_url(conn, u)
-                except ingest.Rejected as e:
-                    log.info("rejected: %s", e)
-                    rejected += 1
-                    continue
-                added, dupes = (added + 1, dupes) if created else (added, dupes + [doc_id])
+                record(lambda: ingest.add_url(conn, u))
         finally:
             conn.close()
-        return added, dupes, rejected
+        return result
 
-    added, dupes, rejected = await run_in_threadpool(work)
+    result = await run_in_threadpool(work)
     await form.close()
-    if added:
+    if result["added"]:
         deps.wake.set()
-    return RedirectResponse(f"/?added={added}&dupes={','.join(map(str, dupes))}&rejected={rejected}",
-                            status_code=303)
+    return result
 
 
-@app.get("/library", response_class=HTMLResponse)
-def library(request: Request, conn=Depends(get_conn)):
-    return templates.TemplateResponse(request, "_library.html", library_context(request, conn))
+def hit_json(h: Hit) -> dict:
+    return {**asdict(h), "image_url": h.image_url}
 
 
-@app.get("/search", response_class=HTMLResponse)
-def search_route(request: Request, q: str = "", deps: ingest.Deps = Depends(get_deps), conn=Depends(get_conn)):
+@app.get("/api/search")
+def search_route(q: str = "", deps: ingest.Deps = Depends(get_deps), conn=Depends(get_conn)):
     result = search(deps, conn, q)
-    return templates.TemplateResponse(request, "_results.html", {
-        "groups": result if isinstance(result, list) else [],
-        "message": result if isinstance(result, str) else (None if result else "No matching pages.")})
+    if isinstance(result, str):
+        return {"groups": [], "message": result}
+    return {"groups": [[hit_json(h) for h in g] for g in result], "message": None if result else "No matching pages."}
 
 
-@app.post("/ask", response_class=HTMLResponse)
-def ask_route(request: Request, q: str = Form(""), deps: ingest.Deps = Depends(get_deps), conn=Depends(get_conn)):
+@app.post("/api/ask")
+def ask_route(q: str = Body("", embed=True), deps: ingest.Deps = Depends(get_deps), conn=Depends(get_conn)):
     result = ask(deps, conn, q)
-    return templates.TemplateResponse(request, "_answer.html", {
-        "answer": result if isinstance(result, Answer) else None,
-        "message": result if isinstance(result, str) else None})
+    if isinstance(result, str):
+        return {"answer": None, "groups": [], "message": result}
+    return {"answer": {"text": result.text, "model": result.model, "sources": [hit_json(h) for h in result.sources]},
+            "groups": [[hit_json(h) for h in g] for g in result.groups], "message": None}
 
 
-@app.post("/docs/{doc_id}/retry", response_class=HTMLResponse)
-def retry_route(request: Request, doc_id: int, deps: ingest.Deps = Depends(get_deps), conn=Depends(get_conn)):
-    return library_with_notice(request, conn, ingest.retry(deps, conn, doc_id))
+@app.post("/api/docs/{doc_id}/retry")
+def retry_route(doc_id: int, deps: ingest.Deps = Depends(get_deps), conn=Depends(get_conn)):
+    return {"message": ingest.retry(deps, conn, doc_id)}
 
 
-@app.post("/docs/{doc_id}/delete", response_class=HTMLResponse)
-def delete_route(request: Request, doc_id: int, deps: ingest.Deps = Depends(get_deps), conn=Depends(get_conn)):
-    return library_with_notice(request, conn, ingest.delete(deps, conn, doc_id))
-
-
-def library_with_notice(request: Request, conn, notice: str | None):
-    ctx = library_context(request, conn)
-    if notice:
-        ctx["banner"] = f"#{request.path_params['doc_id']}: {notice}"
-    return templates.TemplateResponse(request, "_library.html", ctx)
+@app.delete("/api/docs/{doc_id}")
+def delete_route(doc_id: int, deps: ingest.Deps = Depends(get_deps), conn=Depends(get_conn)):
+    return {"message": ingest.delete(deps, conn, doc_id)}
