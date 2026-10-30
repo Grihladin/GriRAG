@@ -3,13 +3,21 @@ import { createRootRoute, createRoute, createRouter, RouterProvider } from '@tan
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AppShell } from '@/components/app-shell'
-import { AskBox } from '@/components/ask-box'
+import { AskPage } from '@/components/ask-page'
 import { DocPage } from '@/components/doc-page'
 import { LibraryPage } from '@/components/library-page'
 import './index.css'
 
 const rootRoute = createRootRoute({ component: AppShell })
-const askRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: AskBox })
+const askRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: AskPage,
+  validateSearch: (s: Record<string, unknown>): { q?: string; mode?: 'search' } => ({
+    q: typeof s.q === 'string' && s.q.trim() ? s.q : undefined,
+    mode: s.mode === 'search' ? 'search' : undefined,
+  }),
+})
 const libraryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library',

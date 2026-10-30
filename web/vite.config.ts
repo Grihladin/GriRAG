@@ -10,4 +10,6 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: { proxy: { '/api': backend, '/files': backend } },
+  // Served locally from disk, so one ~580 kB bundle (185 kB gzipped) is fine; no code splitting.
+  build: { chunkSizeWarningLimit: 800 },
 })
