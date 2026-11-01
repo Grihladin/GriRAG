@@ -284,6 +284,8 @@ def test_ask_sends_three_best_pages_with_labels(deps, conn):
     result = ask(deps, conn, " What is the invoice total? ")
     assert isinstance(result, Answer)
     assert result.text == "The total is 4,312 EUR [S1]." and result.model == deps.cfg.answer_model
+    assert deps.openrouter.reasoning_effort == deps.cfg.answer_reasoning_effort
+    assert deps.openrouter.temperature == deps.cfg.answer_temperature
     assert len(result.sources) == 3 and (result.sources[0].doc_id, result.sources[0].page_no) == (1, 2)
     assert [s.score for s in result.sources] == sorted((s.score for s in result.sources), reverse=True)
     parts = deps.openrouter.chats[0][1]["content"]

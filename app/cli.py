@@ -174,8 +174,11 @@ def smoke(cfg: Config) -> int:
     # request 5: the answer model
     question = "What is the capital of Freedonia, and what is the reference code in the invoice footnote?"
     msgs = build_messages(question, [("[S1] smoke-web, page 1", a), ("[S2] smoke-invoice.pdf, page 1", b)])
-    out, _ = call("chat", "/chat/completions", {"model": cfg.answer_model, "messages": msgs,
-                                                "max_tokens": cfg.answer_max_tokens, "temperature": 0.2})
+    chat_payload = {"model": cfg.answer_model, "messages": msgs,
+                    "max_tokens": cfg.answer_max_tokens, "temperature": cfg.answer_temperature}
+    if cfg.answer_reasoning_effort:
+        chat_payload["reasoning"] = {"effort": cfg.answer_reasoning_effort}
+    out, _ = call("chat", "/chat/completions", chat_payload)
     if out is not None:
         ch = out["choices"][0]
         content = ch["message"].get("content") or ""

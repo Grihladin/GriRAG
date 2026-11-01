@@ -86,8 +86,10 @@ class FakeOpenRouter:
     def __init__(self, remaining=None, reply="The total is 4,312 EUR [S1].", error=None):
         self.remaining, self.reply, self.error, self.chats = remaining, reply, error, []
 
-    def chat(self, model, messages, *, max_tokens):
+    def chat(self, model, messages, *, max_tokens, reasoning_effort=None, temperature=0.4):
         self.chats.append(messages)
+        self.reasoning_effort = reasoning_effort
+        self.temperature = temperature
         if self.error:
             raise self.error
         return self.reply, model

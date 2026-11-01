@@ -130,9 +130,13 @@ class OpenRouter:
         self._quota_cache = (self.clock(), value)
         return value
 
-    def chat(self, model: str, messages: list[dict], *, max_tokens: int) -> tuple[str, str]:
-        body = self.post("/chat/completions", {"model": model, "messages": messages,
-                                               "max_tokens": max_tokens, "temperature": 0.2}, timeout=180)
+    def chat(self, model: str, messages: list[dict], *, max_tokens: int,
+             reasoning_effort: str | None = None,
+             temperature: float = 0.4) -> tuple[str, str]:
+        payload = {"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": temperature}
+        if reasoning_effort:
+            payload["reasoning"] = {"effort": reasoning_effort}
+        body = self.post("/chat/completions", payload, timeout=180)
         choice = (body.get("choices") or [{}])[0]
         content = (choice.get("message") or {}).get("content") or ""
         if not content.strip() and choice.get("finish_reason") == "length":

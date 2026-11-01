@@ -103,7 +103,9 @@ def ask(deps: ingest.Deps, conn, question: str) -> Answer | str:
              for i, h in enumerate(sources, start=1)]
     try:
         content, model = deps.openrouter.chat(deps.cfg.answer_model, build_messages(question.strip(), pages),
-                                              max_tokens=deps.cfg.answer_max_tokens)
+                                              max_tokens=deps.cfg.answer_max_tokens,
+                                              reasoning_effort=deps.cfg.answer_reasoning_effort,
+                                              temperature=deps.cfg.answer_temperature)
     except RateLimited as e:
         return user_message(e)
     except (DocError, Paused) as e:
