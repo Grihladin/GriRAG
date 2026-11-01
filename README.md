@@ -30,15 +30,18 @@ used; the answer prompt is adapted from its `SYSTEM_PROMPT_EVIDENCE_QA`.
 
 ## Quick start
 
-Needs [uv](https://docs.astral.sh/uv/), Node.js, Docker Desktop and an [OpenRouter](https://openrouter.ai) key
-with a few dollars of credit.
+Needs [uv](https://docs.astral.sh/uv/), Node.js, Docker Desktop and an OpenRouter account with a few
+dollars of credit.
 
-```bash
-make setup     # Python and UI packages, .env, data/
-# put your key into .env as OPENROUTER_API_KEY
-make smoke     # optional: checks both models live, about $0.01
-make run       # http://127.0.0.1:8000
-```
+1. Clone and install:
+   ```bash
+   git clone https://github.com/Grihladin/GriRAG.git && cd GriRAG
+   make setup
+   ```
+2. Create a key at https://openrouter.ai/settings/keys and put it into `.env` as `OPENROUTER_API_KEY`.
+3. Optional: `make smoke` checks both models live (about $0.01).
+4. `make run` starts Docker, Gotenberg and Qdrant, then serves the app on http://127.0.0.1:8000.
+5. Click **Add**, drop in a PDF or paste a link, and ask a question once its status is ready.
 
 ## Using it
 
