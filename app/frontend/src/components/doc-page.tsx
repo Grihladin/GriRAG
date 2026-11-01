@@ -1,14 +1,15 @@
 import { useRef } from 'react'
 import { Link, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router'
-import { ArrowLeftIcon, ExternalLinkIcon, FileQuestionIcon, TriangleAlertIcon } from 'lucide-react'
+import { ArrowLeftIcon, FileQuestionIcon, TriangleAlertIcon } from 'lucide-react'
 import { pageUrl, type Doc } from '@/api'
 import { DocActions } from '@/components/doc-actions'
 import { DocStatus, KindIcon } from '@/components/doc-status'
+import { ExternalLink } from '@/components/external-link'
 import { PageViewer } from '@/components/page-viewer'
 import { Warning } from '@/components/warning'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useTitle } from '@/lib/hooks'
 import { displayTitle, fileLabel, isCapture, kindLabel, plural, useDocAction, useLibrary } from '@/lib/library'
-import { useTitle } from '@/lib/title'
 import { cn } from '@/lib/utils'
 
 // /docs/$id: one document with all its pages; ?page=N opens the page viewer.
@@ -84,16 +85,14 @@ export function DocPage() {
             <span>{kindLabel(doc)}</span>
             {doc.page_count !== null && <span>{plural(doc.page_count, 'page')}</span>}
             {doc.file_url && (
-              <a href={doc.file_url} target="_blank" className={link}>
-                {fileLabel(doc)} <ExternalLinkIcon className="size-3.5" />
-                <span className="sr-only">(opens in a new tab)</span>
-              </a>
+              <ExternalLink href={doc.file_url} className={link}>
+                {fileLabel(doc)}
+              </ExternalLink>
             )}
             {doc.kind === 'url' && (
-              <a href={doc.source} target="_blank" rel="noreferrer" className={link}>
-                Open link <ExternalLinkIcon className="size-3.5" />
-                <span className="sr-only">(opens in a new tab)</span>
-              </a>
+              <ExternalLink href={doc.source} className={link}>
+                Open link
+              </ExternalLink>
             )}
           </div>
         </div>

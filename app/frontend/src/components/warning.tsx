@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { CircleXIcon, TriangleAlertIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { cn } from '@/lib/utils'
 
 // Neutral notice for things that are not the user's fault (worker paused, rate limits, refused actions);
 // the error red only with `error`, for failures.

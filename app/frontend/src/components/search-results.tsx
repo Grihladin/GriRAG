@@ -1,11 +1,11 @@
 import { Link } from '@tanstack/react-router'
-import { ExternalLinkIcon } from 'lucide-react'
 import type { Hit } from '@/api'
 import { KindIcon } from '@/components/doc-status'
+import { ExternalLink } from '@/components/external-link'
 import type { ViewerPage } from '@/components/page-viewer'
 import { Card, CardContent } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
 import { displayTitle } from '@/lib/library'
+import { cn } from '@/lib/utils'
 
 // Matching pages grouped by document, best document first.
 export function SearchResults({ groups, onOpen }: { groups: Hit[][]; onOpen: (p: ViewerPage) => void }) {
@@ -24,15 +24,12 @@ export function SearchResults({ groups, onOpen }: { groups: Hit[][]; onOpen: (p:
                 {displayTitle(g[0])}
               </Link>
               {g[0].kind === 'url' && (
-                <a
+                <ExternalLink
                   href={g[0].source}
-                  target="_blank"
-                  rel="noreferrer"
                   className="-my-2 inline-flex shrink-0 items-center gap-1 py-2 text-sm text-muted-foreground hover:text-foreground hover:underline"
                 >
-                  Open link <ExternalLinkIcon className="size-3.5" />
-                  <span className="sr-only">(opens in a new tab)</span>
-                </a>
+                  Open link
+                </ExternalLink>
               )}
             </div>
             <div className="grid grid-cols-2 items-start gap-3 sm:flex sm:flex-wrap">

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { ArrowRightIcon, RotateCwIcon, SearchIcon, SparklesIcon } from 'lucide-react'
@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { isProcessing, useLibrary } from '@/lib/library'
-import { useTitle } from '@/lib/title'
+import { useSlashFocus, useTitle } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
 
 type Mode = 'ask' | 'search'
@@ -81,18 +81,7 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
   const [m, setM] = useState(mode)
   const input = useRef<HTMLInputElement>(null)
 
-  // "/" focuses the box from anywhere on the page, as on most search sites.
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      const typing = e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable]')
-      if (e.key === '/' && !typing) {
-        e.preventDefault()
-        input.current?.focus()
-      }
-    }
-    window.addEventListener('keydown', key)
-    return () => window.removeEventListener('keydown', key)
-  }, [])
+  useSlashFocus(input)
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -158,7 +147,7 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
 
 const forever = { staleTime: Infinity, gcTime: Infinity }
 const row = 'flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between'
-// Messages from app/main.py that trying again right away cannot change.
+// Messages from the server (app/backend/rag/search.py, answer.py) that trying again right away cannot change.
 const final = /^(No matching pages|No documents yet|Type a question|Daily free limit)/
 
 function Results({ q, mode, quota }: { q: string; mode: Mode; quota?: string | null }) {

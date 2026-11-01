@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { CircleXIcon, ClockIcon } from 'lucide-react'
 import { pageUrl, type Doc } from '@/api'
 import { Spinner } from '@/components/ui/spinner'
-import { displayTitle, plural, statusLabel } from '@/lib/library'
+import { displayTitle, plural, statusLabel, totalPages } from '@/lib/library'
 import { cn } from '@/lib/utils'
 
 const SHOWN = 24
@@ -10,7 +10,6 @@ const SHOWN = 24
 // The library on the home page: the first page of each document, newest first. Documents with more than one page
 // sit on a stack.
 export function LightTable({ docs, processing }: { docs: Doc[]; processing: number }) {
-  const pages = docs.reduce((n, d) => n + (d.page_count ?? 0), 0)
   return (
     <section aria-labelledby="light-table" className="space-y-5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b pb-2">
@@ -18,7 +17,7 @@ export function LightTable({ docs, processing }: { docs: Doc[]; processing: numb
           Your library
         </h2>
         <p className="text-sm text-muted-foreground">
-          {plural(docs.length, 'document')}, {plural(pages, 'page')}
+          {plural(docs.length, 'document')}, {plural(totalPages(docs), 'page')}
           {processing > 0 && `, ${processing} processing`}
           <Link to="/library" className="ml-4 font-medium underline decoration-highlight decoration-2 underline-offset-4 hover:decoration-foreground">
             {docs.length > SHOWN ? `See all ${docs.length}` : 'Open library'}

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Spinner } from '@/components/ui/spinner'
 import { AddContext } from '@/lib/add-context'
 import { isProcessing, useLibrary } from '@/lib/library'
-import { setTheme } from '@/lib/theme'
+import { toggleTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 const navLink =
@@ -171,19 +171,14 @@ function Activity({ docs, paused }: { docs: Doc[]; paused: boolean }) {
   )
 }
 
-// Flips light/dark; choosing what the OS uses goes back to following it.
 function ThemeButton() {
-  const toggle = () => {
-    const dark = !document.documentElement.classList.contains('dark')
-    setTheme(dark === matchMedia('(prefers-color-scheme: dark)').matches ? 'system' : dark ? 'dark' : 'light')
-  }
   return (
     <Button
       variant="ghost"
       size="icon"
       title="Switch light/dark theme"
       aria-label="Switch light/dark theme"
-      onClick={toggle}
+      onClick={toggleTheme}
     >
       <SunIcon className="dark:hidden" />
       <MoonIcon className="hidden dark:block" />

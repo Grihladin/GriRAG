@@ -1,4 +1,4 @@
-// Types and calls for the FastAPI JSON API (app/main.py). User-facing errors arrive as `message` in a 200.
+// Types and calls for the FastAPI JSON API (app/backend/api.py). User-facing errors arrive as `message` in a 200.
 
 export type Doc = {
   id: number

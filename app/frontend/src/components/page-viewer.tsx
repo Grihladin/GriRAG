@@ -1,7 +1,8 @@
 import { useState, type KeyboardEvent } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon } from 'lucide-react'
+import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { pageUrl } from '@/api'
+import { ExternalLink } from '@/components/external-link'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { displayTitle, fileLabel, useLibrary } from '@/lib/library'
@@ -22,7 +23,6 @@ export function PageViewer({ page, onChange, docLink = true }: Props) {
     if (e.key === 'ArrowRight') go(page.page + 1)
   }
   const link = '-my-2 inline-flex items-center gap-1 py-2 text-muted-foreground hover:text-foreground hover:underline'
-  const newTab = <span className="sr-only">(opens in a new tab)</span>
 
   return (
     <Dialog open onOpenChange={(open) => !open && onChange(null)}>
@@ -72,20 +72,17 @@ export function PageViewer({ page, onChange, docLink = true }: Props) {
             </Link>
           )}
           {doc?.file_url && (
-            <a href={doc.file_url} target="_blank" className={link}>
-              {fileLabel(doc)} <ExternalLinkIcon className="size-3.5" />
-              {newTab}
-            </a>
+            <ExternalLink href={doc.file_url} className={link}>
+              {fileLabel(doc)}
+            </ExternalLink>
           )}
-          <a href={pageUrl(page.docId, page.page)} target="_blank" className={link}>
-            Full-size image <ExternalLinkIcon className="size-3.5" />
-            {newTab}
-          </a>
+          <ExternalLink href={pageUrl(page.docId, page.page)} className={link}>
+            Full-size image
+          </ExternalLink>
           {doc?.kind === 'url' && (
-            <a href={doc.source} target="_blank" rel="noreferrer" className={link}>
-              Open link <ExternalLinkIcon className="size-3.5" />
-              {newTab}
-            </a>
+            <ExternalLink href={doc.source} className={link}>
+              Open link
+            </ExternalLink>
           )}
         </div>
       </DialogContent>

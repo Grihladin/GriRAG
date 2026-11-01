@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { LibraryIcon, PlusIcon, SearchIcon, TriangleAlertIcon, XIcon } from 'lucide-react'
+import type { Doc } from '@/api'
 import { DocActions } from '@/components/doc-actions'
 import { DocStatus, KindIcon } from '@/components/doc-status'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import type { Doc } from '@/api'
 import { useOpenAdd } from '@/lib/add-context'
-import { displayTitle, plural, useDocAction, useLibrary } from '@/lib/library'
-import { useTitle } from '@/lib/title'
+import { useSlashFocus, useTitle } from '@/lib/hooks'
+import { displayTitle, plural, totalPages, useDocAction, useLibrary } from '@/lib/library'
 
 export function LibraryPage() {
   const library = useLibrary()
@@ -19,7 +19,7 @@ export function LibraryPage() {
   const all = library.data?.docs ?? []
   const [filter, setFilter] = useState('')
   const docs = all.filter(matches(filter))
-  const pages = all.reduce((n, d) => n + (d.page_count ?? 0), 0)
+  const pages = totalPages(all)
   const notice = action.data?.message ?? action.error?.message
 
   return (
@@ -127,17 +127,7 @@ const matches = (filter: string) => {
 // Narrows the table as you type; "/" focuses it, Escape clears it.
 function Filter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const input = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      const typing = e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable]')
-      if (e.key === '/' && !typing) {
-        e.preventDefault()
-        input.current?.focus()
-      }
-    }
-    window.addEventListener('keydown', key)
-    return () => window.removeEventListener('keydown', key)
-  }, [])
+  useSlashFocus(input)
   return (
     <div className="relative w-full sm:w-72">
       <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
