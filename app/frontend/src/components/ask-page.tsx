@@ -189,7 +189,7 @@ function Results({ q, mode, quota }: { q: string; mode: Mode; quota?: string | n
       <p role="status" className="sr-only">
         {query.isFetching
           ? mode === 'ask'
-            ? 'Reading the 3 best pages…'
+            ? 'Reading the best pages…'
             : 'Searching…'
           : mode === 'ask' && ask.data?.answer
             ? 'Answer ready'
@@ -256,7 +256,7 @@ function Loading({ mode }: { mode: Mode }) {
       <CardContent className="space-y-3">
         <p className="flex items-start gap-2 text-sm text-muted-foreground [&>svg]:mt-0.5">
           <Spinner />
-          {mode === 'ask' ? 'Reading the 3 best pages. This takes a few seconds.' : 'Searching…'}
+          {mode === 'ask' ? 'Reading the best pages. This takes a few seconds.' : 'Searching…'}
         </p>
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />
