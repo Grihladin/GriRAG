@@ -49,6 +49,7 @@ Needs uv, Node.js, Docker Desktop (with the default 4 GB VM) and an OpenRouter a
 - `make reembed` (app stopped) re-embeds everything from the stored page images, after changing `EMBED_MODEL`
   or another embedding setting, or if the Qdrant data was lost. It prints the request count and asks first.
 - `make test` runs the unit tests (no network, no Docker).
+- `make lint` runs Ruff on the Python code and Oxlint (with `@shadcn/lint`) on `web/`.
 
 ## Web UI development
 
@@ -59,7 +60,8 @@ in `app/main.py`; FastAPI serves the built `web/dist` at `/`.
   Vite reloads on save and proxies `/api` and `/files` to the app on port 8000.
 - `cd web && npm run build` type-checks and builds; `npx shadcn@latest add <component>` adds a component.
 - `cd web && npm run lint` runs Oxlint with the [`@shadcn/lint`](https://github.com/shadcn-ui/lint) plugin
-  registered in `web/.oxlintrc.json`; its design-system rules are switched on in the `rules` there.
+  registered in `web/.oxlintrc.json`. `shadcn/no-raw-colors` is on: components use the theme tokens in
+  `web/src/index.css`, not Tailwind palette colours.
 
 ## Models and cost
 

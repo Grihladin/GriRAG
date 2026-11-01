@@ -1144,7 +1144,10 @@ Recorded while building; each item is the smallest fix to the plan above.
     muted sage accent (#6b8a78; the user rejected a blue and then a highlighter-yellow accent as too bright) for
     what was found or is pointed at: cited and hovered pages, link underlines, the focused ask box. Dark mode is
     neutral graphite with a mid-tone sage (#7f9a88; a pastel sage looked mint there), and page rings sit 2 px off
-    the page so they show against white pages in both themes. Plus Jakarta Sans (as on openrouter.ai; user choice) replaces Geist, with Onest as the
+    the page so they show against white pages in both themes. Colour is limited to three roles (user: "too many
+    colours"): graphite for everything neutral, including notices and "waiting"; sage for the accent and "ready";
+    a muted brick red (#a8433a) for errors only. The amber and emerald Tailwind colours are gone, and
+    `shadcn/no-raw-colors` is on in `web/.oxlintrc.json` to keep it that way. Plus Jakarta Sans (as on openrouter.ai; user choice) replaces Geist, with Onest as the
     fallback for Cyrillic, which Plus Jakarta Sans lacks.
   - **Home page:** a larger single-field ask box, and below it the newest documents' first pages in their own
     colours (a cyanotype tint was tried and rejected by the user). The Library tab shows no document count.

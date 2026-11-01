@@ -3,8 +3,8 @@ import base64
 from typing import Protocol
 
 from app import DocError
-from app.convert import square_jpeg
 from app.config import Config
+from app.convert import square_jpeg
 from app.openrouter import OpenRouter
 
 

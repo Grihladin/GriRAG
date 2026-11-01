@@ -5,7 +5,7 @@ from app import DocError
 from app.convert import render_pages, square_jpeg
 from tests.conftest import FIXTURES, make_pdf
 
-KW = dict(longest_edge=1536, quality=85, max_pages=500)
+KW = {"longest_edge": 1536, "quality": 85, "max_pages": 500}
 
 
 def size(p):
@@ -54,7 +54,7 @@ def test_square_jpeg_pads_and_centres():
 
 from app.convert import slice_screenshot
 
-SKW = dict(slice_height=1120, quality=85, max_pages=40)
+SKW = {"slice_height": 1120, "quality": 85, "max_pages": 40}
 
 
 def screenshot(path, w, h):

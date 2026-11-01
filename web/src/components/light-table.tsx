@@ -72,7 +72,7 @@ function Pending({ doc: d }: { doc: Doc }) {
     <div
       className={cn(
         'flex aspect-[3/4] items-center justify-center rounded-[3px] border border-dashed text-muted-foreground group-focus-visible:ring-2 group-focus-visible:ring-ring',
-        failed && 'border-destructive/40 text-destructive',
+        failed && 'text-destructive',
       )}
     >
       {failed ? <CircleXIcon className="size-5" /> : d.waiting ? <ClockIcon className="size-5" /> : <Spinner />}

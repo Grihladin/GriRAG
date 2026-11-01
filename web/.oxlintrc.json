@@ -15,6 +15,7 @@
       {
         "allowConstantExport": true
       }
-    ]
+    ],
+    "shadcn/no-raw-colors": "error"
   }
 }

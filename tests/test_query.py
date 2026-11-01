@@ -216,7 +216,7 @@ def test_pages_sent_unpadded_by_default(cfg, clock):
 
 from app import ingest, store
 from app.main import Answer, ask, search
-from tests.conftest import FIXTURES, FakeEmbedder, FakeOpenRouter
+from tests.conftest import FIXTURES, FakeEmbedder
 
 
 def library(deps, conn, *names):
@@ -256,7 +256,7 @@ def test_search_groups_by_document(deps, conn):
     library(deps, conn, "sample.pdf", "sample2.pdf")
     query_matching(deps, 1, 2)
     groups = search(deps, conn, "invoice total")
-    assert [g[0].doc_id for g in groups][0] == 1
+    assert next(g[0].doc_id for g in groups) == 1
     assert groups[0][0].page_no == 2 and groups[0][0].score == pytest.approx(1.0)
     assert {len(g) for g in groups} == {3}
     assert groups[0][0].image_url == "/files/1/pages/0002.jpg" and groups[0][0].file_url == "/files/1/doc.pdf"

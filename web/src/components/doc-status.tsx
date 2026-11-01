@@ -19,7 +19,7 @@ export function DocStatus({ doc: d, message = true }: { doc: Doc; message?: bool
       </div>
     )
   if (d.status === 'done')
-    return <Label icon={<CircleCheckIcon className="size-4 text-emerald-600 dark:text-emerald-500" />}>Ready</Label>
+    return <Label icon={<CircleCheckIcon className="size-4 text-highlight" />}>Ready</Label>
   const failed = d.status === 'error'
   return (
     <div className="space-y-0.5">
@@ -28,7 +28,7 @@ export function DocStatus({ doc: d, message = true }: { doc: Doc; message?: bool
           Failed
         </Label>
       ) : (
-        <Label icon={<ClockIcon className="size-4" />} className={d.waiting ? 'text-amber-700 dark:text-amber-400' : ''}>
+        <Label icon={<ClockIcon className="size-4" />} className="text-muted-foreground">
           {d.waiting ? 'Waiting' : 'Queued'}
         </Label>
       )}

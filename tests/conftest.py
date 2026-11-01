@@ -46,7 +46,6 @@ def key_response(remaining=40, used=10, limit=50):
 # ---------------------------------------------------------------- ingest fixtures
 
 import hashlib
-import shutil
 from pathlib import Path
 
 from qdrant_client import QdrantClient

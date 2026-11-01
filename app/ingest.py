@@ -8,11 +8,12 @@ import sqlite3
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import BinaryIO, Callable
+from typing import BinaryIO
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -295,7 +296,7 @@ def delete(deps: Deps, conn, doc_id: int) -> str | None:
 def take_lock(cfg: Config):
     """The open lock file, or None if the app or a reembed already holds data/worker.lock."""
     cfg.data_dir.mkdir(parents=True, exist_ok=True)
-    f = open(cfg.data_dir / "worker.lock", "w")
+    f = open(cfg.data_dir / "worker.lock", "w")  # noqa: SIM115 -- held open for the app's lifetime
     try:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         return f

@@ -166,7 +166,7 @@ def collection_exists(qc: QdrantClient, cfg: Config) -> bool:
 
 def check_collection(qc: QdrantClient, conn, cfg: Config) -> None:
     """Exit if the stored vectors no longer match the config, or were lost (PLAN.md §4.2)."""
-    pages, requests = request_estimate(conn, cfg.embed_batch_pages)
+    _pages, requests = request_estimate(conn, cfg.embed_batch_pages)
     if collection_exists(qc, cfg):
         meta = qc.get_collection(cfg.qdrant_collection).config.metadata or {}
         for key, want in (("embed_model", cfg.embed_model), ("passage_mode", cfg.passage_mode)):

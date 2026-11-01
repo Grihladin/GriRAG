@@ -158,7 +158,7 @@ function Activity({ docs, paused }: { docs: Doc[]; paused: boolean }) {
         </span>
       )}
       {waiting > 0 && (
-        <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+        <span className="flex items-center gap-1.5">
           <ClockIcon className="size-4" /> {waiting} waiting
         </span>
       )}
