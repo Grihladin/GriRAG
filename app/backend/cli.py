@@ -11,8 +11,8 @@ import time
 import httpx
 import pymupdf
 
-from app import DocError, Paused, RateLimited
-from app.config import Config, check_key, load_config
+from app.backend.config import Config, check_key, load_config
+from app.backend.errors import DocError, Paused, RateLimited
 
 Q1 = "What is the capital of Freedonia?"
 Q2 = "What is the invoice total?"
@@ -73,9 +73,9 @@ def cos(a: list[float], b: list[float]) -> float:
 
 
 def smoke(cfg: Config) -> int:
-    from app.embedder import OpenRouterEmbedder, image_part, parse_vectors
-    from app.main import build_messages
-    from app.openrouter import OpenRouter
+    from app.backend.main import build_messages
+    from app.backend.rag.embedder import OpenRouterEmbedder, image_part, parse_vectors
+    from app.backend.rag.openrouter import OpenRouter
 
     check_key(cfg)
     http = httpx.Client()
@@ -201,7 +201,7 @@ def smoke(cfg: Config) -> int:
 def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    ap = argparse.ArgumentParser(prog="python -m app.cli")
+    ap = argparse.ArgumentParser(prog="python -m app.backend.cli")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sp = sub.add_parser("smoke", help="M0 live checks (about 5 free requests)")
     sp.add_argument("--input-mode", choices=["field", "prefix"])
@@ -216,7 +216,7 @@ def main(argv=None) -> int:
                                   ("embed_passage_type", args.passage_type), ("embed_batch_pages", args.batch))
                 if v is not None}
         return smoke(dataclasses.replace(cfg, **over))
-    from app.ingest import reembed
+    from app.backend.ingest import reembed
     return reembed(cfg)
 
 

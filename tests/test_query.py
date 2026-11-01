@@ -5,10 +5,10 @@ import httpx
 import pymupdf
 import pytest
 
-from app import DocError, Paused, RateLimited
-from app.embedder import OpenRouterEmbedder
-from app.main import SYSTEM_PROMPT, build_messages
-from app.openrouter import OpenRouter, next_utc_midnight
+from app.backend.errors import DocError, Paused, RateLimited
+from app.backend.main import SYSTEM_PROMPT, build_messages
+from app.backend.rag.embedder import OpenRouterEmbedder
+from app.backend.rag.openrouter import OpenRouter, next_utc_midnight
 from tests.conftest import body_of, key_response, mock_http
 
 
@@ -214,8 +214,8 @@ def test_pages_sent_unpadded_by_default(cfg, clock):
 
 # ---------------------------------------------------------------- search and ask
 
-from app import ingest, store
-from app.main import Answer, ask, search
+from app.backend import ingest, store
+from app.backend.main import Answer, ask, search
 from tests.conftest import FIXTURES, FakeEmbedder
 
 

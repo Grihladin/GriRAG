@@ -15,14 +15,15 @@ from qdrant_client import QdrantClient
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
 
-from app import DocError, Paused, RateLimited, ingest, store
-from app.config import check_key, load_config
-from app.embedder import OpenRouterEmbedder, image_part
-from app.openrouter import OpenRouter, next_utc_midnight
+from app.backend import ingest, store
+from app.backend.config import check_key, load_config
+from app.backend.errors import DocError, Paused, RateLimited
+from app.backend.rag.embedder import OpenRouterEmbedder, image_part
+from app.backend.rag.openrouter import OpenRouter, next_utc_midnight
 
-log = logging.getLogger("app.main")
+log = logging.getLogger("app.backend.main")
 HERE = Path(__file__).parent
-WEB_DIST = HERE.parent / "web" / "dist"
+WEB_DIST = HERE.parent / "frontend" / "dist"
 
 SYSTEM_PROMPT = """You answer questions using only the document pages shown as images.
 Each image is preceded by a label such as [S1].

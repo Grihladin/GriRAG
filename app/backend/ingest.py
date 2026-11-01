@@ -19,12 +19,14 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx
 from qdrant_client import QdrantClient
 
-from app import DocError, Paused, RateLimited, convert, store
-from app.config import Config
-from app.embedder import Embedder
-from app.openrouter import OpenRouter, next_utc_midnight
+from app.backend import store
+from app.backend.config import Config
+from app.backend.errors import DocError, Paused, RateLimited
+from app.backend.rag import convert
+from app.backend.rag.embedder import Embedder
+from app.backend.rag.openrouter import OpenRouter, next_utc_midnight
 
-log = logging.getLogger("app.ingest")
+log = logging.getLogger("app.backend.ingest")
 
 
 @dataclass

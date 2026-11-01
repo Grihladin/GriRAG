@@ -1,8 +1,8 @@
 import pymupdf
 import pytest
 
-from app import DocError
-from app.convert import render_pages, square_jpeg
+from app.backend.errors import DocError
+from app.backend.rag.convert import render_pages, square_jpeg
 from tests.conftest import FIXTURES, make_pdf
 
 KW = {"longest_edge": 1536, "quality": 85, "max_pages": 500}
@@ -52,7 +52,7 @@ def test_square_jpeg_pads_and_centres():
 
 # ---------------------------------------------------------------- slicing web screenshots
 
-from app.convert import slice_screenshot
+from app.backend.rag.convert import slice_screenshot
 
 SKW = {"slice_height": 1120, "quality": 85, "max_pages": 40}
 

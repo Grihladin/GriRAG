@@ -6,8 +6,8 @@ from urllib.parse import urlsplit
 import httpx
 import pymupdf
 
-from app import DocError, Paused
-from app.config import Config
+from app.backend.config import Config
+from app.backend.errors import DocError, Paused
 
 pymupdf.TOOLS.mupdf_display_errors(False)        # broken files become DocError, not stderr noise
 

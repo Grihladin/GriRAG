@@ -13,10 +13,10 @@ import httpx
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
-from app import DocError, Paused
-from app.config import Config
+from app.backend.config import Config
+from app.backend.errors import DocError, Paused
 
-log = logging.getLogger("app.store")
+log = logging.getLogger("app.backend.store")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (

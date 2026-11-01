@@ -6,10 +6,10 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from app import DocError, Paused, RateLimited
-from app.config import Config
+from app.backend.config import Config
+from app.backend.errors import DocError, Paused, RateLimited
 
-log = logging.getLogger("app.openrouter")
+log = logging.getLogger("app.backend.rag.openrouter")
 
 PRIVACY_HINT = "no endpoints: enable free endpoints at https://openrouter.ai/settings/privacy, or the model was withdrawn"
 # The free NVIDIA embedder answers about half of all requests with a random 502 (M0/M1, PLAN.md §15).

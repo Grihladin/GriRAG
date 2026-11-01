@@ -5,7 +5,8 @@ import time
 
 import pytest
 
-from app import Paused, RateLimited, ingest, store
+from app.backend import ingest, store
+from app.backend.errors import Paused, RateLimited
 from tests.conftest import FIXTURES, FakeOpenRouter, make_pdf
 
 
@@ -203,7 +204,7 @@ from email.parser import BytesParser
 import httpx
 import pymupdf
 
-from app.convert import SCROLL_JS
+from app.backend.rag.convert import SCROLL_JS
 from tests.conftest import mock_http
 
 

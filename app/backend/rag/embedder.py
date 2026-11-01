@@ -2,10 +2,10 @@
 import base64
 from typing import Protocol
 
-from app import DocError
-from app.config import Config
-from app.convert import square_jpeg
-from app.openrouter import OpenRouter
+from app.backend.config import Config
+from app.backend.errors import DocError
+from app.backend.rag.convert import square_jpeg
+from app.backend.rag.openrouter import OpenRouter
 
 
 class Embedder(Protocol):

@@ -1,9 +1,10 @@
 RUN = uv run --env-file .env
+UI = app/frontend
 .PHONY: setup up down web run test lint smoke reembed
 
 setup:          ## once
 	uv sync
-	cd web && npm ci
+	cd $(UI) && npm ci
 	test -f .env || cp .env.example .env
 	mkdir -p data/qdrant data/docs data/tmp
 
@@ -16,26 +17,26 @@ up:             ## start Docker Desktop if needed, then Gotenberg + Qdrant, wait
 down:           ## stop containers (frees the Docker VM memory)
 	docker compose stop
 
-web: web/dist/index.html    ## build the UI (web/) if its sources changed
+web: $(UI)/dist/index.html    ## build the UI (app/frontend/) if its sources changed
 
-web/node_modules/.package-lock.json: web/package-lock.json
-	cd web && npm ci
+$(UI)/node_modules/.package-lock.json: $(UI)/package-lock.json
+	cd $(UI) && npm ci
 
-web/dist/index.html: web/node_modules/.package-lock.json web/index.html web/vite.config.ts $(shell find web/src -type f)
-	cd web && npm run build
+$(UI)/dist/index.html: $(UI)/node_modules/.package-lock.json $(UI)/index.html $(UI)/vite.config.ts $(shell find $(UI)/src -type f)
+	cd $(UI) && npm run build
 
 run: up web     ## web app on http://127.0.0.1:8000
-	$(RUN) uvicorn app.main:app --host 127.0.0.1 --port 8000
+	$(RUN) uvicorn app.backend.main:app --host 127.0.0.1 --port 8000
 
 test:           ## unit tests, no network, no Docker
 	uv run pytest
 
-lint:           ## Ruff for the Python code, Oxlint (+ @shadcn/lint) for web/
+lint:           ## Ruff for the Python code, Oxlint (+ @shadcn/lint) for the UI
 	uv run ruff check .
-	cd web && npm run lint
+	cd $(UI) && npm run lint
 
-smoke: up       ## M0 live checks, ~5 free requests; e.g. make smoke ARGS="--passage-type document"
-	$(RUN) python -m app.cli smoke $(ARGS)
+smoke: up       ## M0 live checks, ~5 requests; e.g. make smoke ARGS="--passage-type document"
+	$(RUN) python -m app.backend.cli smoke $(ARGS)
 
 reembed:        ## app must be stopped; prints the request estimate and asks first
-	$(RUN) python -m app.cli reembed
+	$(RUN) python -m app.backend.cli reembed
