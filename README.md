@@ -25,15 +25,18 @@ Needs uv, Node.js, Docker Desktop (with the default 4 GB VM) and an OpenRouter a
   sources changed, then serves the app on http://127.0.0.1:8000.
 - **Add** (top bar, or drop files anywhere): PDF/DOCX files and/or http(s) links, one per line. Links to a PDF
   or DOCX file are downloaded; other links are screenshotted at 1120 px wide and cut into 1120 × 1120 pages.
-  The top bar shows what is still processing; the library and each document's page follow it live.
+  The top bar (on wider screens) shows what is still processing; the library and each document's page follow it
+  live.
 - **Ask** (the home page; Enter): sends the question and the 3 best pages to the answer model and shows the
   answer with [S1]–[S3]. Click a citation or thumbnail to see the page large (←/→ for its neighbours); all
-  matching pages are listed below the answer. Switch to **Search** to only find pages, without the model.
-  `/` focuses the box; Back/Forward go through earlier questions.
+  matching pages are listed below the answer. Switch to **Search** to only find pages, without the model. On a
+  results page the switch shows the same question in the other mode. `/` focuses the box; Back/Forward go through
+  earlier questions.
 - **Library:** every document with its status. A document's page (click its title) shows all its pages.
 - **Retry** a failed or waiting document; **Delete** removes its row, vectors and files. To refresh a web page,
   delete it and add the link again.
-- The sun/moon button switches between the system, light and dark theme.
+- The sun/moon button switches between light and dark; choosing the theme your system uses makes the app follow
+  the system again.
 - `make down` stops the containers and frees the Docker VM's memory.
 - `make reembed` (app stopped) re-embeds everything from the stored page images, after changing `EMBED_MODEL`
   or another embedding setting, or if the Qdrant data was lost. It prints the request count and asks first.
