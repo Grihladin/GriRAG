@@ -122,7 +122,7 @@ def test_ask(client, deps, conn):
     assert body["message"] is None
     assert body["answer"]["text"] == "The total is 4,312 EUR [S1]." and body["answer"]["model"] == deps.cfg.answer_model
     assert [s["image_url"] for s in body["answer"]["sources"]][0] == "/files/1/pages/0002.jpg"
-    assert len(body["answer"]["sources"]) == 3
+    assert len(body["answer"]["sources"]) == 6
     assert [len(g) for g in body["groups"]] == [3, 3] and body["groups"][0][0]["image_url"] == "/files/1/pages/0002.jpg"
 
 

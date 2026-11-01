@@ -277,7 +277,7 @@ def test_query_embedding_is_cached(deps, conn):
     assert deps.embedder.query_calls == ["invoice total"]
 
 
-def test_ask_sends_three_best_pages_with_labels(deps, conn):
+def test_ask_sends_best_pages_with_labels(deps, conn):
     library(deps, conn, "sample.pdf", "sample2.pdf")
     query_matching(deps, 1, 2)
     deps.openrouter.reply = "<think>let me look</think>\nThe total is 4,312 EUR [S1]."
@@ -286,12 +286,12 @@ def test_ask_sends_three_best_pages_with_labels(deps, conn):
     assert result.text == "The total is 4,312 EUR [S1]." and result.model == deps.cfg.answer_model
     assert deps.openrouter.reasoning_effort == deps.cfg.answer_reasoning_effort
     assert deps.openrouter.temperature == deps.cfg.answer_temperature
-    assert len(result.sources) == 3 and (result.sources[0].doc_id, result.sources[0].page_no) == (1, 2)
+    assert len(result.sources) == 6 and (result.sources[0].doc_id, result.sources[0].page_no) == (1, 2)
     assert [s.score for s in result.sources] == sorted((s.score for s in result.sources), reverse=True)
     parts = deps.openrouter.chats[0][1]["content"]
     assert parts[0]["text"] == "Question: What is the invoice total?"
     assert parts[1]["text"] == "[S1] sample.pdf, page 2"
-    assert [p["type"] for p in parts] == ["text"] + ["text", "image_url"] * 3
+    assert [p["type"] for p in parts] == ["text"] + ["text", "image_url"] * 6
 
 
 @pytest.mark.parametrize("error,message", [
