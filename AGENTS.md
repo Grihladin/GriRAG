@@ -38,3 +38,13 @@ shadcn/ui in `app/frontend/`.
   `shadcn/no-raw-colors` fails the lint on Tailwind palette colours.
 - Font: Plus Jakarta Sans (Onest covers Cyrillic). Keep accents muted.
 - Never recolour, tint or filter document page images.
+
+## README diagrams
+
+- Sources are `docs/diagrams/*.excalidraw` (open them on excalidraw.com to edit); the README shows PNGs from
+  `assets/`, a light and a `-dark` version of each, switched with `<picture>`.
+- Render with the official Excalidraw CLI (`npm i -g @excalidraw/cli`), which needs Chrome, Chromium, Edge or
+  Firefox (or `EXCALIDRAW_BROWSER_PATH`):
+  `excalidraw render docs/diagrams/X.excalidraw --out assets/X.png --scale 2 --transparent`, then again with
+  `--theme dark --out assets/X-dark.png`.
+- Excalidraw does not resize boxes to their text: make a box wide enough for its label.
