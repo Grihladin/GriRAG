@@ -5,7 +5,7 @@ Instructions for coding agents working in this repository. Read `README.md` for 
 
 GriRAG is a single-user visual RAG. You add PDFs, Word files and web links; every page becomes an image;
 the images are embedded through OpenRouter and stored in Qdrant; a vision model answers from the best
-pages with citations. Python 3.12 + FastAPI in `app/backend/` (the RAG pipeline in `app/backend/rag/`), React + Vite + Tailwind v4 +
+pages with citations. Python 3.14 + FastAPI in `app/backend/` (the RAG pipeline in `app/backend/rag/`), React + Vite + Tailwind v4 +
 shadcn/ui in `app/frontend/`.
 
 ## Commands

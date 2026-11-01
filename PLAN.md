@@ -100,7 +100,7 @@ No PixelRAG code is imported or copied. The app's README credits PixelRAG (Apach
                        Browser  http://127.0.0.1:8000
                          │  forms (htmx), <img src="/files/{doc}/pages/NNNN.jpg">
                          ▼
-┌──────────────── Python app: one process (uv, Python 3.12) ─────────────────┐
+┌──────────────── Python app: one process (uv, Python 3.14) ─────────────────┐
 │  main.py  routes, search, ask ──► ingest.add_file / add_url ──► SQLite      │
 │     │  /files = static data/docs                          data/app.db       │
 │     │                                                          ▲ claim      │
@@ -465,7 +465,7 @@ That is why `EMBED_INPUT_MODE` (`field` | `prefix`), `EMBED_QUERY_TYPE` and `EMB
  Delete (any status except working): row deleted, then its Qdrant points, then its folder
 ```
 
-- **Claim** is atomic. `RETURNING` works: the uv Python 3.12.12 ships SQLite 3.50.4.
+- **Claim** is atomic. `RETURNING` works: the uv Python 3.14.10 ships SQLite 3.53.1.
   ```sql
   UPDATE documents SET status = 'working', message = NULL
   WHERE id = (SELECT id FROM documents
@@ -728,7 +728,7 @@ At startup the app exits if `OPENROUTER_API_KEY` is empty or still the `sk-or-..
 ├── README.md                # setup, daily use, M0 findings, known limitations, PixelRAG credit
 ├── .gitignore               # .env  data/  .venv/  __pycache__/  .pytest_cache/
 ├── .env.example
-├── .python-version          # 3.12
+├── .python-version          # 3.14
 ├── pyproject.toml
 ├── uv.lock
 ├── docker-compose.yml
@@ -810,7 +810,7 @@ def worker_loop(deps: Deps, stop: threading.Event, wake: threading.Event) -> Non
 name = "pixelrag-app"
 version = "0.1.0"
 description = "Personal visual RAG: documents -> page images -> OpenRouter embeddings -> Qdrant -> vision LLM"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.14,<3.15"
 dependencies = [
   "fastapi==0.162.0",
   "uvicorn==0.54.0",

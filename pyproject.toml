@@ -2,7 +2,7 @@
 name = "grirag"
 version = "0.1.0"
 description = "Personal visual RAG: documents -> page images -> OpenRouter embeddings -> Qdrant -> vision LLM"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.14,<3.15"
 dependencies = [
   "fastapi==0.162.0",
   "uvicorn==0.54.0",
@@ -22,7 +22,7 @@ package = false
 line-length = 120                # the code is written to ~120 columns; `ruff format` is not used
 
 [tool.ruff.lint]
-ignore = ["B008"]                # FastAPI's Depends() in argument defaults is the intended pattern
+extend-select = ["FAST"]         # FastAPI rules, e.g. dependencies declared with Annotated
 
 [tool.pytest.ini_options]
 pythonpath = ["."]              # package = false: without this, `import app` fails at collection

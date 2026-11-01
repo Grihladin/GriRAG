@@ -10,7 +10,6 @@ import httpx
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from qdrant_client import QdrantClient
-from starlette.exceptions import HTTPException
 
 from app.backend import api, store, worker
 from app.backend.config import check_key, load_config, setup_logging
@@ -22,19 +21,6 @@ from app.backend.rag.openrouter import OpenRouter
 
 log = logging.getLogger(__name__)
 UI_DIST = Path(__file__).parent.parent / "frontend" / "dist"
-
-
-class SPAFiles(StaticFiles):
-    """The built UI. Other paths without a file extension get index.html, so client routes like /library survive
-    a reload."""
-
-    async def get_response(self, path: str, scope):
-        try:
-            return await super().get_response(path, scope)
-        except HTTPException as e:
-            if e.status_code != 404 or path.split("/")[0] == "api" or "." in path.rsplit("/", 1)[-1]:
-                raise
-            return await super().get_response("index.html", scope)
 
 
 @asynccontextmanager
@@ -65,9 +51,7 @@ async def lifespan(app: FastAPI):
     thread.start()
     app.state.deps, app.state.worker = deps, thread
     app.mount("/files", StaticFiles(directory=cfg.data_dir / "docs"), name="files")
-    if (UI_DIST / "index.html").exists():         # last: a mount at "/" catches everything after it
-        app.mount("/", SPAFiles(directory=UI_DIST, html=True), name="ui")
-    else:
+    if not (UI_DIST / "index.html").exists():
         log.warning("app/frontend/dist not built; run make web (or use the Vite dev server)")
     try:
         yield
@@ -80,3 +64,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(api.router)
+if (UI_DIST / "index.html").exists():
+    # The built UI, matched after every route and mount. A page load of a client route like /library gets index.html.
+    app.frontend("/", directory=UI_DIST)
