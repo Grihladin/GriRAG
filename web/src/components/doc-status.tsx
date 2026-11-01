@@ -3,10 +3,11 @@ import { CircleCheckIcon, CircleXIcon, ClockIcon, FileTextIcon, GlobeIcon } from
 import type { Doc } from '@/api'
 import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
+import { cn } from '@/lib/utils'
 
-// Converting → Embedding k/n → Ready, or Queued, Waiting (rate limit) and Failed, with the server's message.
-// clamp: the message is cut to 2 lines (library table); the document page shows it whole.
-export function DocStatus({ doc: d, clamp = true }: { doc: Doc; clamp?: boolean }) {
+// Converting → Embedding k/n → Ready, or Queued, Waiting (rate limit) and Failed;
+// message: the server's message underneath.
+export function DocStatus({ doc: d, message = true }: { doc: Doc; message?: boolean }) {
   if (d.status === 'working' && d.page_count === null) return <Label icon={<Spinner />}>Converting</Label>
   if (d.status === 'working')
     return (
@@ -14,7 +15,7 @@ export function DocStatus({ doc: d, clamp = true }: { doc: Doc; clamp?: boolean 
         <Label icon={<Spinner />}>
           Embedding {d.pages_embedded}/{d.page_count}
         </Label>
-        <Progress value={(100 * d.pages_embedded) / d.page_count!} />
+        <Progress value={(100 * d.pages_embedded) / d.page_count!} aria-label="Embedding progress" />
       </div>
     )
   if (d.status === 'done')
@@ -31,18 +32,14 @@ export function DocStatus({ doc: d, clamp = true }: { doc: Doc; clamp?: boolean 
           {d.waiting ? 'Waiting' : 'Queued'}
         </Label>
       )}
-      {d.message && (
-        <p className={`text-xs text-muted-foreground ${clamp ? 'line-clamp-2' : ''}`} title={d.message}>
-          {d.message}
-        </p>
-      )}
+      {message && d.message && <p className="text-xs text-muted-foreground first-letter:uppercase">{d.message}</p>}
     </div>
   )
 }
 
-function Label({ icon, className = '', children }: { icon: ReactNode; className?: string; children: ReactNode }) {
+function Label({ icon, className, children }: { icon: ReactNode; className?: string; children: ReactNode }) {
   return (
-    <span className={`flex items-center gap-1.5 text-sm ${className}`}>
+    <span className={cn('flex items-center gap-1.5 text-sm', className)}>
       {icon}
       {children}
     </span>

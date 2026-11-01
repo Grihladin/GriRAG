@@ -10,15 +10,15 @@ import { displayTitle } from '@/lib/library'
 // Matching pages grouped by document, best document first.
 export function SearchResults({ groups, onOpen }: { groups: Hit[][]; onOpen: (p: ViewerPage) => void }) {
   return (
-    <div className="space-y-3">
+    <div className="grid gap-3 xl:grid-cols-2">
       {groups.map((g) => (
         <Card key={g[0].doc_id}>
           <CardContent className="space-y-3">
-            <div className="flex items-baseline justify-between gap-4">
+            <div className="flex items-center justify-between gap-4">
               <Link
                 to="/docs/$id"
                 params={{ id: String(g[0].doc_id) }}
-                className="flex min-w-0 items-center gap-2 font-medium break-all hover:underline"
+                className="flex min-w-0 items-start gap-2 font-medium wrap-anywhere hover:underline [&>svg]:mt-0.5"
               >
                 <KindIcon kind={g[0].kind} />
                 {displayTitle(g[0])}
@@ -28,13 +28,14 @@ export function SearchResults({ groups, onOpen }: { groups: Hit[][]; onOpen: (p:
                   href={g[0].source}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:underline"
+                  className="-my-2 inline-flex shrink-0 items-center gap-1 py-2 text-sm text-muted-foreground hover:text-foreground hover:underline"
                 >
-                  Website <ExternalLinkIcon className="size-3.5" />
+                  Open link <ExternalLinkIcon className="size-3.5" />
+                  <span className="sr-only">(opens in a new tab)</span>
                 </a>
               )}
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-2 items-start gap-3 sm:flex sm:flex-wrap">
               {g.map((h) => (
                 <PageThumb key={h.page_no} hit={h} caption={`p. ${h.page_no} · ${h.score.toFixed(2)}`} onOpen={onOpen} />
               ))}
@@ -52,17 +53,17 @@ export function PageThumb({ hit: h, caption, label, highlight, onOpen }: ThumbPr
   return (
     <button
       type="button"
+      aria-label={`${label ? `${label}: ` : ''}${displayTitle(h)}, page ${h.page_no}`}
       onClick={() => onOpen({ docId: h.doc_id, page: h.page_no, label })}
-      className="group w-44 space-y-1 text-left"
+      className="group space-y-1 text-left outline-none sm:w-40"
     >
       <img
         src={h.image_url}
-        alt={`${h.title}, page ${h.page_no}`}
+        alt=""
         loading="lazy"
         className={cn(
-          'w-full rounded-md border bg-white object-contain transition-shadow group-hover:ring-2 group-hover:ring-ring',
-          h.kind === 'url' ? 'aspect-square' : 'aspect-[3/4]',
-          highlight && 'ring-2 ring-primary',
+          'aspect-[3/4] w-full rounded-md border bg-white object-contain object-top transition-[box-shadow,filter] group-hover:ring-2 group-hover:ring-ring group-focus-visible:ring-2 group-focus-visible:ring-ring dark:brightness-85 dark:group-hover:brightness-100',
+          highlight && 'ring-2 ring-primary ring-offset-2 ring-offset-card',
         )}
       />
       <span className="block truncate text-xs text-muted-foreground" title={caption}>
