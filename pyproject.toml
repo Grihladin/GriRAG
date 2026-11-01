@@ -22,7 +22,7 @@ package = false
 line-length = 120                # the code is written to ~120 columns; `ruff format` is not used
 
 [tool.ruff.lint]
-ignore = ["B008"]                # FastAPI's Depends() in argument defaults is the intended pattern
+extend-select = ["FAST"]         # FastAPI rules, e.g. dependencies declared with Annotated
 
 [tool.pytest.ini_options]
 pythonpath = ["."]              # package = false: without this, `import app` fails at collection

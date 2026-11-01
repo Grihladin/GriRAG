@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.backend import store
 from app.backend.errors import Paused
-from app.backend.main import SPAFiles, app
+from app.backend.main import app
 from tests.conftest import FIXTURES, FakeOpenRouter
 from tests.test_query import library, query_matching
 
@@ -172,12 +172,14 @@ def test_delete(client, deps, conn):
 # ---------------------------------------------------------------- web UI files
 
 def test_spa_fallback(tmp_path):
+    """Page loads of client routes get index.html; fetch() calls and scripts that miss get a 404."""
     (tmp_path / "index.html").write_text("app")
     (tmp_path / "app.js").write_text("js")
     web = FastAPI()
-    web.mount("/", SPAFiles(directory=tmp_path, html=True))
+    web.frontend("/", directory=tmp_path)
     c = TestClient(web)
-    assert c.get("/").text == c.get("/library").text == c.get("/docs/3").text == "app"
+    page = {"accept": "text/html,application/xhtml+xml,*/*;q=0.8"}
+    assert c.get("/").text == c.get("/library", headers=page).text == c.get("/docs/3", headers=page).text == "app"
     assert c.get("/app.js").text == "js"
     assert c.get("/missing.js").status_code == c.get("/api/nope").status_code == 404
 

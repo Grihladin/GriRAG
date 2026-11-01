@@ -1,9 +1,11 @@
 """The JSON API under /api that the UI talks to. User-facing errors are 200 responses with a `message`. PLAN.md §7."""
+import sqlite3
 import time
+from collections.abc import Iterator
 from datetime import datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Request
-from starlette.concurrency import run_in_threadpool
+from fastapi import APIRouter, Body, Depends, File, Form, Request, UploadFile
 
 from app.backend import documents, store
 from app.backend.deps import Deps
@@ -18,13 +20,19 @@ def get_deps(request: Request) -> Deps:
     return request.app.state.deps
 
 
-def get_conn(deps: Deps = Depends(get_deps)):
+DepsDep = Annotated[Deps, Depends(get_deps)]
+
+
+def get_conn(deps: DepsDep) -> Iterator[sqlite3.Connection]:
     """One SQLite connection per request."""
     conn = deps.connect()
     try:
         yield conn
     finally:
         conn.close()
+
+
+ConnDep = Annotated[sqlite3.Connection, Depends(get_conn)]
 
 
 def fmt_time(ts: float | None) -> str:
@@ -36,10 +44,10 @@ def groups_json(groups: list[list[Hit]]) -> list[list[dict]]:
 
 
 @router.get("/library")
-def library(request: Request, conn=Depends(get_conn)):
+def library(request: Request, deps: DepsDep, conn: ConnDep):
     """Documents, the worker banner, and how often the UI should poll (null: stop)."""
     now = time.time()
-    deps, worker = request.app.state.deps, request.app.state.worker
+    worker = request.app.state.worker
     docs = [{**dict(r), "waiting": r["status"] == "queued" and (r["next_attempt_at"] or 0) > now,
              "file_url": store.file_url(deps.cfg, r["id"])} for r in store.list_docs(conn)]
     banner = None
@@ -53,7 +61,7 @@ def library(request: Request, conn=Depends(get_conn)):
 
 
 @router.get("/quota")
-def quota(deps: Deps = Depends(get_deps)):
+def quota(deps: DepsDep):
     """Free-request line, only when a :free model is configured. Separate so polling never calls OpenRouter."""
     if not any(m.endswith(":free") for m in (deps.cfg.embed_model, deps.cfg.answer_model)):
         return {"quota": None}
@@ -63,7 +71,7 @@ def quota(deps: Deps = Depends(get_deps)):
 
 
 @router.get("/config")
-def config(deps: Deps = Depends(get_deps)):
+def config(deps: DepsDep):
     """The settings that shape answers and search, read-only (they come from .env). Never the API key."""
     c = deps.cfg
     return {
@@ -79,28 +87,18 @@ def config(deps: Deps = Depends(get_deps)):
 
 
 @router.post("/add")
-async def add(request: Request, deps: Deps = Depends(get_deps)):
+def add(deps: DepsDep, conn: ConnDep, files: Annotated[list[UploadFile] | None, File()] = None,
+        urls: Annotated[str, Form()] = ""):
     """Multipart: files (multiple) and urls (one per line)."""
-    form = await request.form()
-    files = [(f.filename, f.file) for f in form.getlist("files") if getattr(f, "filename", None)]
-    urls = [u for u in str(form.get("urls") or "").splitlines() if u.strip()]
-
-    def work():
-        conn = deps.connect()
-        try:
-            return documents.add_all(conn, deps.cfg, files, urls)
-        finally:
-            conn.close()
-
-    result = await run_in_threadpool(work)
-    await form.close()
+    result = documents.add_all(conn, deps.cfg, [(f.filename, f.file) for f in files or []],
+                               [u for u in urls.splitlines() if u.strip()])
     if result["added"]:
         deps.wake.set()
     return result
 
 
 @router.get("/search")
-def search_route(q: str = "", deps: Deps = Depends(get_deps), conn=Depends(get_conn)):
+def search_route(deps: DepsDep, conn: ConnDep, q: str = ""):
     result = search(deps, conn, q)
     if isinstance(result, str):
         return {"groups": [], "message": result}
@@ -108,7 +106,7 @@ def search_route(q: str = "", deps: Deps = Depends(get_deps), conn=Depends(get_c
 
 
 @router.post("/ask")
-def ask_route(q: str = Body("", embed=True), deps: Deps = Depends(get_deps), conn=Depends(get_conn)):
+def ask_route(deps: DepsDep, conn: ConnDep, q: Annotated[str, Body(embed=True)] = ""):
     result = ask(deps, conn, q)
     if isinstance(result, str):
         return {"answer": None, "groups": [], "message": result}
@@ -117,10 +115,10 @@ def ask_route(q: str = Body("", embed=True), deps: Deps = Depends(get_deps), con
 
 
 @router.post("/docs/{doc_id}/retry")
-def retry(doc_id: int, deps: Deps = Depends(get_deps), conn=Depends(get_conn)):
+def retry(doc_id: int, deps: DepsDep, conn: ConnDep):
     return {"message": documents.retry(deps, conn, doc_id)}
 
 
 @router.delete("/docs/{doc_id}")
-def delete(doc_id: int, deps: Deps = Depends(get_deps), conn=Depends(get_conn)):
+def delete(doc_id: int, deps: DepsDep, conn: ConnDep):
     return {"message": documents.delete(deps, conn, doc_id)}
