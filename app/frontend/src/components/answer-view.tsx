@@ -17,13 +17,24 @@ const linkCitations = (text: string) =>
       .join(' '),
   )
 
+// The S-numbers the answer cites that exist, e.g. "[S3] … [S1, S3] … [S9]" with 8 sources → {1, 3}.
+const citedNumbers = (text: string, count: number) =>
+  new Set(
+    [...text.matchAll(citations)]
+      .flatMap((m) => m[1].split(/\s*,\s*/))
+      .map((l) => Number(l.slice(1)))
+      .filter((n) => n >= 1 && n <= count),
+  )
+
 // Styles for the elements Markdown produces; the theme has no typography plugin.
 const prose =
   'max-w-[72ch] space-y-3 text-base leading-7 wrap-break-word [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-sm [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_li]:mt-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-6'
 
 export function AnswerView({ answer, onOpen }: { answer: Answer; onOpen: (p: ViewerPage) => void }) {
   const [hovered, setHovered] = useState<number | null>(null)
-  const cited = /\[S\d/.test(answer.text)
+  // Only the cited pages are shown; with no valid citation, every page the model read.
+  const cited = useMemo(() => citedNumbers(answer.text, answer.sources.length), [answer])
+  const shown = answer.sources.map((h, i) => ({ h, n: i + 1 })).filter(({ n }) => !cited.size || cited.has(n))
 
   // Memoised so that highlighting a source on hover or focus does not re-create the citation buttons (and drop focus).
   const text = useMemo(
@@ -67,15 +78,15 @@ export function AnswerView({ answer, onOpen }: { answer: Answer; onOpen: (p: Vie
     <div className="space-y-6">
       <div className={prose}>{text}</div>
       <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">{cited ? 'Sources' : 'Pages read'}</h2>
+        <h2 className="text-sm font-medium text-muted-foreground">{cited.size ? 'Sources' : 'Pages read'}</h2>
         <div className="grid grid-cols-2 items-start gap-3 sm:flex sm:flex-wrap">
-          {answer.sources.map((h, i) => (
+          {shown.map(({ h, n }) => (
             <PageThumb
               key={h.image_url}
               hit={h}
-              label={cited ? `S${i + 1}` : undefined}
-              caption={`${cited ? `S${i + 1} · ` : ''}${displayTitle(h)} · p. ${h.page_no} · ${h.score.toFixed(2)}`}
-              highlight={hovered === i + 1}
+              label={cited.size ? `S${n}` : undefined}
+              caption={`${cited.size ? `S${n} · ` : ''}${displayTitle(h)} · p. ${h.page_no} · ${h.score.toFixed(2)}`}
+              highlight={hovered === n}
               onOpen={onOpen}
             />
           ))}
