@@ -16,7 +16,7 @@ class Config:
     answer_model: str = "meta/muse-spark-1.3-contributor"
     answer_reasoning_effort: str = "max"
     answer_temperature: float = 0.4
-    answer_pages: int = 3
+    answer_pages: int = 8
     answer_max_tokens: int = 2048
     or_reserve_requests: int = 10
     or_min_interval_s: float = 3.2

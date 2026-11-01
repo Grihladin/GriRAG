@@ -201,7 +201,7 @@ def upsert(qc: QdrantClient, cfg: Config, doc_id: int, pages: list[int], vecs: l
 def search_groups(qc: QdrantClient, cfg: Config, vec: list[float]) -> list:
     with qdrant_errors():
         return qc.query_points_groups(cfg.qdrant_collection, group_by="doc_id", query=vec,
-                                      limit=cfg.search_groups, group_size=3, with_payload=True).groups
+                                      limit=cfg.search_groups, group_size=max(cfg.answer_pages, 3), with_payload=True).groups
 
 
 def delete_points(qc: QdrantClient, cfg: Config, doc_id: int) -> None:

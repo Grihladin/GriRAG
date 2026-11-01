@@ -159,7 +159,7 @@ URL ─► streamed GET ─► application/pdf ──► download ────�
 **Query flow**
 ```
 question ─► OpenRouter /embeddings (query mode; cached per text)
-         ─► Qdrant query_points_groups(group_by="doc_id", limit=10, group_size=3)
+         ─► Qdrant query_points_groups(group_by="doc_id", limit=10, group_size=max(ANSWER_PAGES, 3))
          ─► join documents in SQLite (groups without a row are dropped)
          ─► Search: groups ─► thumbnails
          ─► Ask:    3 best pages overall + question ─► OpenRouter /chat/completions
@@ -534,7 +534,7 @@ def ask(deps, conn, question: str) -> Answer      # Answer(text: str, sources: l
 ```
 
 1. `groups = search(question)`, with the same handling for a blank question and an empty library. If there are no hits, return "No matching pages." without a chat request.
-2. `sources` = the `ANSWER_PAGES` (3) best pages across all groups, by score. The overall top 3 are always inside the groups, because each of them is among its own document's top 3.
+2. `sources` = the `ANSWER_PAGES` (8) best pages across all groups, by score. `group_size` is `max(ANSWER_PAGES, 3)`, so the overall top `ANSWER_PAGES` are always inside the groups: each of them is among its own document's top `ANSWER_PAGES`.
 3. Images: the stored JPEGs (longest edge 1536 px) as base64 data URLs, with no `detail` field.
 4. Request: `POST /api/v1/chat/completions`, non-streaming. The question text comes first, then the images, per OpenRouter's [image guide](https://openrouter.ai/docs/guides/overview/multimodal/image-understanding.md). A short label before each image ties it to its citation:
 
@@ -819,7 +819,7 @@ package = false
 pythonpath = ["."]              # package = false: without this, `import app` fails at collection
 ```
 
-**`.env.example`.** `config.py` reads `os.environ`, and `uv run --env-file .env` loads the file, so `python-dotenv` is not needed. Comments sit on their own lines. Only the values you are expected to change are listed; every other constant in `config.py` (`ANSWER_PAGES=3`, `ANSWER_MAX_TOKENS=2048`, `OR_MIN_INTERVAL_S=3.2`, `PAGE_LONGEST_EDGE_PX=1536`, `JPEG_QUALITY=85`, `MAX_PAGES=500` (≤ 9999), `MAX_WEB_PAGES=40`, `MAX_UPLOAD_MB=200`, `SEARCH_GROUPS=10`, `OFFICE_EXTENSIONS=.docx`, `GOTENBERG_URL=http://127.0.0.1:3100`, `QDRANT_URL=http://127.0.0.1:6333`, `QDRANT_COLLECTION=pages`, `DATA_DIR=data`) can be overridden the same way.
+**`.env.example`.** `config.py` reads `os.environ`, and `uv run --env-file .env` loads the file, so `python-dotenv` is not needed. Comments sit on their own lines. Only the values you are expected to change are listed; every other constant in `config.py` (`ANSWER_PAGES=8`, `ANSWER_MAX_TOKENS=2048`, `OR_MIN_INTERVAL_S=3.2`, `PAGE_LONGEST_EDGE_PX=1536`, `JPEG_QUALITY=85`, `MAX_PAGES=500` (≤ 9999), `MAX_WEB_PAGES=40`, `MAX_UPLOAD_MB=200`, `SEARCH_GROUPS=10`, `OFFICE_EXTENSIONS=.docx`, `GOTENBERG_URL=http://127.0.0.1:3100`, `QDRANT_URL=http://127.0.0.1:6333`, `QDRANT_COLLECTION=pages`, `DATA_DIR=data`) can be overridden the same way.
 
 ```
 OPENROUTER_API_KEY=sk-or-...
