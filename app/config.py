@@ -13,7 +13,7 @@ class Config:
     embed_passage_type: str = "document"
     embed_batch_pages: int = 8
     embed_square_pages: bool = False         # pad pages to squares for the embedder (needed by the free Nemotron)
-    answer_model: str = "google/gemma-4-31b-it"
+    answer_model: str = "meta/muse-spark-1.3-contributor"
     answer_pages: int = 3
     answer_max_tokens: int = 2048
     or_reserve_requests: int = 10

@@ -54,7 +54,7 @@ in `app/main.py`; FastAPI serves the built `web/dist` at `/`.
 ## Models and cost
 
 Since 2026-10-30 the app uses paid models (PLAN.md §15): `voyageai/voyage-multimodal-3.5` embeds pages
-(about $1 per 1,000 pages, 8 pages per request) and `google/gemma-4-31b-it` answers (about $0.0001–0.0006 per
+(about $1 per 1,000 pages, 8 pages per request) and `meta/muse-spark-1.3-contributor` answers (about $0.0001–0.0006 per
 question). Each OpenRouter call is logged with its cost (`openrouter /embeddings ... cost=...`).
 
 - A question costs 2 requests (query embedding + answer); asking right after searching the same text costs 1.
