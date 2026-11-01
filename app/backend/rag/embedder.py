@@ -1,11 +1,10 @@
 """Embedder interface (the swap seam for a local embedder later) and the OpenRouter implementation."""
-import base64
 from typing import Protocol
 
 from app.backend.config import Config
 from app.backend.errors import DocError
-from app.backend.rag.convert import square_jpeg
-from app.backend.rag.openrouter import OpenRouter
+from app.backend.rag.openrouter import OpenRouter, image_part
+from app.backend.rag.render import square_jpeg
 
 
 class Embedder(Protocol):
@@ -15,15 +14,8 @@ class Embedder(Protocol):
     def embed_query(self, text: str) -> list[float]: ...                  # questions (query mode)
 
 
-def data_url(jpeg: bytes) -> str:
-    return "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()
-
-
-def image_part(jpeg: bytes) -> dict:
-    return {"type": "image_url", "image_url": {"url": data_url(jpeg)}}
-
-
 def parse_vectors(body: dict, n: int) -> list[list[float]]:
+    """The n vectors of an /embeddings response, in input order."""
     data = body.get("data") or []
     if all("index" in d for d in data):
         data = sorted(data, key=lambda d: d["index"])
@@ -34,12 +26,14 @@ def parse_vectors(body: dict, n: int) -> list[list[float]]:
 
 
 class OpenRouterEmbedder:
+    """Pages in passage mode, questions in query mode; EMBED_INPUT_MODE picks input_type (field) or text prefixes."""
+
     def __init__(self, cfg: Config, openrouter: OpenRouter):
         self.cfg, self.openrouter = cfg, openrouter
         self.model_id = cfg.embed_model
         self.passage_mode = cfg.passage_mode
 
-    def _body(self, inputs, input_type: str) -> dict:
+    def request_body(self, inputs, input_type: str) -> dict:
         body = {"model": self.model_id, "input": inputs, "encoding_format": "float"}
         if self.cfg.embed_input_mode == "field":
             body["input_type"] = input_type
@@ -55,9 +49,9 @@ class OpenRouterEmbedder:
     def embed_pages(self, jpegs: list[bytes]) -> list[list[float]]:
         if self.cfg.embed_square_pages:
             jpegs = [square_jpeg(j, self.cfg.jpeg_quality) for j in jpegs]
-        body = self.openrouter.post("/embeddings", self._body(self.page_inputs(jpegs), self.cfg.embed_passage_type))
+        body = self.openrouter.post("/embeddings", self.request_body(self.page_inputs(jpegs), self.cfg.embed_passage_type))
         return parse_vectors(body, len(jpegs))
 
     def embed_query(self, text: str) -> list[float]:
-        body = self.openrouter.post("/embeddings", self._body(self.query_input(text), self.cfg.embed_query_type))
+        body = self.openrouter.post("/embeddings", self.request_body(self.query_input(text), self.cfg.embed_query_type))
         return parse_vectors(body, 1)[0]

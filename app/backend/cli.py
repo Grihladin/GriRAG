@@ -1,8 +1,7 @@
-"""CLI: `smoke` (M0 live checks) and `reembed` (PLAN.md §5.8)."""
+"""CLI: `smoke` (M0 live checks) and `reembed` (PLAN.md §5.8). Run with `python -m app.backend.cli`."""
 import argparse
 import dataclasses
 import json
-import logging
 import math
 import random
 import sys
@@ -11,8 +10,9 @@ import time
 import httpx
 import pymupdf
 
-from app.backend.config import Config, check_key, load_config
+from app.backend.config import Config, check_key, load_config, setup_logging
 from app.backend.errors import DocError, Paused, RateLimited
+from app.backend.rag.render import page_pixmap
 
 Q1 = "What is the capital of Freedonia?"
 Q2 = "What is the invoice total?"
@@ -21,8 +21,7 @@ Q2 = "What is the invoice total?"
 # ---------------------------------------------------------------- smoke pages (real render settings)
 
 def _render(page: pymupdf.Page, cfg: Config, longest_edge: int) -> bytes:
-    z = longest_edge / max(page.rect.width, page.rect.height)
-    return page.get_pixmap(matrix=pymupdf.Matrix(z, z), alpha=False).tobytes("jpeg", jpg_quality=cfg.jpeg_quality)
+    return page_pixmap(page, longest_edge).tobytes("jpeg", jpg_quality=cfg.jpeg_quality)
 
 
 def page_a(cfg: Config) -> bytes:
@@ -97,8 +96,10 @@ def smoke(cfg: Config) -> int:
 
     print(f"config: embed={cfg.embed_model} mode={cfg.embed_input_mode} query_type={cfg.embed_query_type} "
           f"passage_type={cfg.embed_passage_type} batch={cfg.embed_batch_pages} answer={cfg.answer_model}")
-    r = http.get(cfg.openrouter_url + "/key", headers={"Authorization": f"Bearer {cfg.openrouter_api_key}"})
-    key = r.json().get("data", {})
+    def key_info() -> dict:
+        return http.get(cfg.openrouter_url + "/key", headers=orr.headers).json().get("data", {})
+
+    key = key_info()
     q_before = key.get("free_model_daily_requests")
     print(f"key: is_free_tier={key.get('is_free_tier')} free_model_daily_requests={q_before}")
 
@@ -111,7 +112,7 @@ def smoke(cfg: Config) -> int:
     vecs = []
     for i in range(0, len(pages), bs):
         chunk = pages[i:i + bs]
-        out, size = call("embed", "/embeddings", emb._body(emb.page_inputs(chunk), cfg.embed_passage_type))
+        out, size = call("embed", "/embeddings", emb.request_body(emb.page_inputs(chunk), cfg.embed_passage_type))
         if out is None:
             print(f"embed: {len(chunk)} pages, request ≈ {size:.1f} MB failed; rerun with a smaller --batch")
             return 1
@@ -136,7 +137,7 @@ def smoke(cfg: Config) -> int:
         p0, q0 = parse_vectors(out1, 1)[0], parse_vectors(out2, 1)[0]
 
     # request 3: both questions in the configured query mode
-    out, _ = call("query", "/embeddings", emb._body([emb.query_input(Q1), emb.query_input(Q2)], cfg.embed_query_type))
+    out, _ = call("query", "/embeddings", emb.request_body([emb.query_input(Q1), emb.query_input(Q2)], cfg.embed_query_type))
     if out is None:
         return 1
     q1, q2 = parse_vectors(out, 2)
@@ -188,8 +189,7 @@ def smoke(cfg: Config) -> int:
             print(f"  contains {needle!r}: {needle in content}")
 
     time.sleep(5)
-    r = http.get(cfg.openrouter_url + "/key", headers={"Authorization": f"Bearer {cfg.openrouter_api_key}"})
-    q_after = r.json().get("data", {}).get("free_model_daily_requests")
+    q_after = key_info().get("free_model_daily_requests")
     if q_before and q_after:
         print(f"quota: used {q_before['used']} -> {q_after['used']} (delta {q_after['used'] - q_before['used']}); "
               f"model requests sent {sent}, succeeded {ok}; /key calls 2")
@@ -199,8 +199,7 @@ def smoke(cfg: Config) -> int:
 # ---------------------------------------------------------------- main
 
 def main(argv=None) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    setup_logging()
     ap = argparse.ArgumentParser(prog="python -m app.backend.cli")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sp = sub.add_parser("smoke", help="M0 live checks (about 5 free requests)")
@@ -216,7 +215,7 @@ def main(argv=None) -> int:
                                   ("embed_passage_type", args.passage_type), ("embed_batch_pages", args.batch))
                 if v is not None}
         return smoke(dataclasses.replace(cfg, **over))
-    from app.backend.ingest import reembed
+    from app.backend.worker import reembed
     return reembed(cfg)
 
 

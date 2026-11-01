@@ -1,4 +1,5 @@
 """The only code that talks to OpenRouter: throttle, free-quota read, 429 classification, errors."""
+import base64
 import logging
 import threading
 import time
@@ -9,7 +10,7 @@ import httpx
 from app.backend.config import Config
 from app.backend.errors import DocError, Paused, RateLimited
 
-log = logging.getLogger("app.backend.rag.openrouter")
+log = logging.getLogger(__name__)
 
 PRIVACY_HINT = "no endpoints: enable free endpoints at https://openrouter.ai/settings/privacy, or the model was withdrawn"
 # The free NVIDIA embedder answers about half of all requests with a random 502 (M0/M1, PLAN.md §15).
@@ -22,6 +23,11 @@ BATCH_HINT = ("if this is about size (image_too_large is a 400, payload_too_larg
 def next_utc_midnight(now: float | None = None) -> float:
     d = datetime.fromtimestamp(time.time() if now is None else now, UTC)
     return (d.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)).timestamp()
+
+
+def image_part(jpeg: bytes) -> dict:
+    """A JPEG as a message content part (embedding inputs and chat messages)."""
+    return {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()}}
 
 
 def _message(r: httpx.Response) -> str:
@@ -43,7 +49,7 @@ class OpenRouter:
         self._quota_cache: tuple[float, dict | None] = (0.0, None)
 
     @property
-    def _headers(self) -> dict:
+    def headers(self) -> dict:
         return {"Authorization": f"Bearer {self.cfg.openrouter_api_key}"}
 
     def _wait_slot(self) -> None:
@@ -61,7 +67,7 @@ class OpenRouter:
             self._wait_slot()
             t0 = self.clock()
             try:
-                r = self.http.post(self.cfg.openrouter_url + path, json=payload, headers=self._headers,
+                r = self.http.post(self.cfg.openrouter_url + path, json=payload, headers=self.headers,
                                    timeout=timeout)
             except httpx.HTTPError as e:
                 log.info("openrouter %s model=%s %s error=%s", path, payload.get("model"), what, type(e).__name__)
@@ -122,7 +128,7 @@ class OpenRouter:
         if cached and self.clock() - at < 60:
             return value
         try:
-            r = self.http.get(self.cfg.openrouter_url + "/key", headers=self._headers, timeout=15)
+            r = self.http.get(self.cfg.openrouter_url + "/key", headers=self.headers, timeout=15)
             q = r.json()["data"]["free_model_daily_requests"]
             value = {k: int(q[k]) for k in ("used", "limit", "remaining")}
         except Exception:  # noqa: BLE001 -- the quota line is optional

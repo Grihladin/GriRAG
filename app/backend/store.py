@@ -1,22 +1,11 @@
-"""SQLite (catalog + job state) and Qdrant (page vectors). PLAN.md §4."""
-import logging
+"""The SQLite catalog (one `documents` table: catalog + job state) and the document folders. PLAN.md §4.1, §4.3."""
 import math
-import shutil
 import sqlite3
 import time
-import warnings
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-import httpx
-from qdrant_client import QdrantClient, models
-from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
-
 from app.backend.config import Config
-from app.backend.errors import DocError, Paused
-
-log = logging.getLogger("app.backend.store")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
@@ -38,6 +27,7 @@ CREATE TABLE IF NOT EXISTS documents (
 
 @dataclass
 class Doc:
+    """The columns the worker needs for one claimed document."""
     id: int
     kind: str
     source: str
@@ -55,6 +45,8 @@ def connect(cfg: Config) -> sqlite3.Connection:
     return conn
 
 
+# ---------------------------------------------------------------- folders: data/docs/{id}/
+
 def doc_dir(cfg: Config, doc_id: int) -> Path:
     return cfg.data_dir / "docs" / str(doc_id)
 
@@ -63,7 +55,19 @@ def page_path(cfg: Config, doc_id: int, page_no: int) -> Path:
     return doc_dir(cfg, doc_id) / "pages" / f"{page_no:04d}.jpg"
 
 
-# ---------------------------------------------------------------- SQLite
+def page_url(doc_id: int, page_no: int) -> str:
+    return f"/files/{doc_id}/pages/{page_no:04d}.jpg"
+
+
+def file_url(cfg: Config, doc_id: int) -> str | None:
+    """The whole document: doc.pdf (PDF, DOCX, PDF links), or source.jpg (screenshotted web pages); None until it exists."""
+    for name in ("doc.pdf", "source.jpg"):
+        if (doc_dir(cfg, doc_id) / name).exists():
+            return f"/files/{doc_id}/{name}"
+    return None
+
+
+# ---------------------------------------------------------------- reads
 
 def get(conn, doc_id: int) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
@@ -73,11 +77,39 @@ def by_dedup(conn, key: str) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM documents WHERE dedup_key = ?", (key,)).fetchone()
 
 
+def by_ids(conn, ids: list[int]) -> dict[int, sqlite3.Row]:
+    rows = conn.execute(f"SELECT * FROM documents WHERE id IN ({','.join('?' * len(ids))})", ids)
+    return {r["id"]: r for r in rows}
+
+
 def list_docs(conn) -> list[sqlite3.Row]:
     return conn.execute("SELECT * FROM documents ORDER BY id DESC").fetchall()
 
 
+def all_ids(conn) -> set[int]:
+    return {r[0] for r in conn.execute("SELECT id FROM documents")}
+
+
+def pages_embedded(conn) -> int:
+    return conn.execute("SELECT COALESCE(SUM(pages_embedded), 0) FROM documents").fetchone()[0]
+
+
+def request_estimate(conn, batch: int) -> tuple[int, int]:
+    """(pages embedded or to embed, requests to embed them all) over every rendered document."""
+    counts = [r[0] for r in conn.execute("SELECT page_count FROM documents WHERE page_count IS NOT NULL")]
+    return sum(counts), sum(math.ceil(c / batch) for c in counts)
+
+
+# ---------------------------------------------------------------- writes
+
+def insert(conn, kind: str, source: str, dedup_key: str) -> int:
+    """A queued document titled by its source; not committed (the caller commits once its files are in place)."""
+    return conn.execute("INSERT INTO documents (kind, source, title, dedup_key) VALUES (?, ?, ?, ?)",
+                        (kind, source, source, dedup_key)).lastrowid
+
+
 def claim(conn, now: float | None = None) -> Doc | None:
+    """The oldest queued document that is not waiting, now 'working'."""
     row = conn.execute(
         """UPDATE documents SET status = 'working', message = NULL
            WHERE id = (SELECT id FROM documents
@@ -107,6 +139,7 @@ def set_status(conn, doc_id: int, status: str, message: str | None = None,
 
 
 def retry(conn, doc_id: int, now: float | None = None) -> bool:
+    """Compare-and-set: only a failed or waiting document goes back to the queue."""
     cur = conn.execute(
         """UPDATE documents SET status = 'queued', message = NULL, next_attempt_at = NULL
            WHERE id = ? AND (status = 'error' OR (status = 'queued' AND next_attempt_at > ?))""",
@@ -116,96 +149,22 @@ def retry(conn, doc_id: int, now: float | None = None) -> bool:
 
 
 def delete_row(conn, doc_id: int) -> bool:
+    """Compare-and-set: a document the worker is processing is not deleted."""
     cur = conn.execute("DELETE FROM documents WHERE id = ? AND status != 'working'", (doc_id,))
     conn.commit()
     return cur.rowcount == 1
 
 
-def request_estimate(conn, batch: int) -> tuple[int, int]:
-    """(pages embedded or to embed, requests to embed them all) over every rendered document."""
-    counts = [r[0] for r in conn.execute("SELECT page_count FROM documents WHERE page_count IS NOT NULL")]
-    return sum(counts), sum(math.ceil(c / batch) for c in counts)
-
-
-def recover(conn, qc: QdrantClient, cfg: Config) -> None:
-    """Startup: working -> queued; folders without a row (crash during add or delete) are removed."""
+def requeue_working(conn) -> int:
+    """Startup: documents a crash left 'working' go back to the queue."""
     n = conn.execute("UPDATE documents SET status = 'queued' WHERE status = 'working'").rowcount
     conn.commit()
-    if n:
-        log.info("recover: %d working document(s) back to queued", n)
-    docs = cfg.data_dir / "docs"
-    if not docs.is_dir():
-        return
-    ids = {r[0] for r in conn.execute("SELECT id FROM documents")}
-    for d in docs.iterdir():
-        if d.is_dir() and d.name.isdigit() and int(d.name) not in ids:
-            delete_points(qc, cfg, int(d.name))
-            shutil.rmtree(d, ignore_errors=True)
-            log.info("recover: removed orphan folder %s", d)
+    return n
 
 
-# ---------------------------------------------------------------- Qdrant
-
-@contextmanager
-def qdrant_errors():
-    """Connection problems pause the worker; Qdrant rejecting the data fails the document."""
-    try:
-        yield
-    except (ResponseHandlingException, httpx.TransportError) as e:
-        raise Paused("Qdrant is not running: make up") from e
-    except UnexpectedResponse as e:
-        raise DocError(f"Qdrant: {e}") from e
-    except ValueError as e:                       # local mode reports bad vectors as ValueError
-        raise DocError(f"Qdrant: {e}") from e
-
-
-def collection_exists(qc: QdrantClient, cfg: Config) -> bool:
-    with qdrant_errors():
-        return qc.collection_exists(cfg.qdrant_collection)
-
-
-def check_collection(qc: QdrantClient, conn, cfg: Config) -> None:
-    """Exit if the stored vectors no longer match the config, or were lost (PLAN.md §4.2)."""
-    _pages, requests = request_estimate(conn, cfg.embed_batch_pages)
-    if collection_exists(qc, cfg):
-        meta = qc.get_collection(cfg.qdrant_collection).config.metadata or {}
-        for key, want in (("embed_model", cfg.embed_model), ("passage_mode", cfg.passage_mode)):
-            if meta.get(key) != want:
-                raise SystemExit(f"{key.upper() if key == 'embed_model' else 'Passage mode'} changed from "
-                                 f"{meta.get(key)} to {want}: run 'make reembed' (≈ {requests} requests) "
-                                 f"or revert .env")
-        return
-    embedded = conn.execute("SELECT COALESCE(SUM(pages_embedded), 0) FROM documents").fetchone()[0]
-    if embedded:
-        raise SystemExit(f"Qdrant collection '{cfg.qdrant_collection}' is missing but {embedded} pages were "
-                         f"embedded: run 'make reembed' (≈ {requests} requests)")
-
-
-def upsert(qc: QdrantClient, cfg: Config, doc_id: int, pages: list[int], vecs: list[list[float]]) -> None:
-    with qdrant_errors():
-        if not qc.collection_exists(cfg.qdrant_collection):
-            dim = len(vecs[0])
-            qc.create_collection(cfg.qdrant_collection,
-                                 vectors_config=models.VectorParams(size=dim, distance=models.Distance.COSINE),
-                                 metadata={"embed_model": cfg.embed_model, "dim": dim,
-                                           "passage_mode": cfg.passage_mode})
-            with warnings.catch_warnings():       # local mode warns that payload indexes do nothing
-                warnings.simplefilter("ignore")
-                qc.create_payload_index(cfg.qdrant_collection, field_name="doc_id",
-                                        field_schema=models.PayloadSchemaType.INTEGER)
-        qc.upsert(cfg.qdrant_collection, wait=True, points=[
-            models.PointStruct(id=doc_id * 10000 + p, vector=v, payload={"doc_id": doc_id, "page": p})
-            for p, v in zip(pages, vecs)])
-
-
-def search_groups(qc: QdrantClient, cfg: Config, vec: list[float]) -> list:
-    with qdrant_errors():
-        return qc.query_points_groups(cfg.qdrant_collection, group_by="doc_id", query=vec,
-                                      limit=cfg.search_groups, group_size=max(cfg.answer_pages, 3), with_payload=True).groups
-
-
-def delete_points(qc: QdrantClient, cfg: Config, doc_id: int) -> None:
-    with qdrant_errors():
-        if qc.collection_exists(cfg.qdrant_collection):
-            qc.delete(cfg.qdrant_collection, points_selector=models.FilterSelector(filter=models.Filter(
-                must=[models.FieldCondition(key="doc_id", match=models.MatchValue(value=doc_id))])))
+def requeue_for_reembed(conn) -> int:
+    """Every rendered document is queued with no pages embedded; its page images are kept."""
+    n = conn.execute("""UPDATE documents SET status = 'queued', pages_embedded = 0, message = NULL,
+                        next_attempt_at = NULL WHERE page_count IS NOT NULL""").rowcount
+    conn.commit()
+    return n

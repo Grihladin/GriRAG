@@ -1,3 +1,5 @@
+"""Settings from the environment (.env via `uv run --env-file`), with defaults. PLAN.md §9."""
+import logging
 import os
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -72,3 +74,8 @@ def load_config(env=None) -> Config:
 def check_key(cfg: Config) -> None:
     if not cfg.openrouter_api_key or cfg.openrouter_api_key.startswith("sk-or-..."):
         raise SystemExit("OPENROUTER_API_KEY is empty or still the placeholder: put your key in .env")
+
+
+def setup_logging() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)

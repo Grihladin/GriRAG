@@ -51,7 +51,7 @@ from pathlib import Path
 from qdrant_client import QdrantClient
 
 from app.backend import store
-from app.backend.ingest import Deps
+from app.backend.deps import Deps
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

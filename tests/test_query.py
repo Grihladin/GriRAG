@@ -6,7 +6,7 @@ import pymupdf
 import pytest
 
 from app.backend.errors import DocError, Paused, RateLimited
-from app.backend.main import SYSTEM_PROMPT, build_messages
+from app.backend.rag.answer import SYSTEM_PROMPT, build_messages
 from app.backend.rag.embedder import OpenRouterEmbedder
 from app.backend.rag.openrouter import OpenRouter, next_utc_midnight
 from tests.conftest import body_of, key_response, mock_http
@@ -214,8 +214,9 @@ def test_pages_sent_unpadded_by_default(cfg, clock):
 
 # ---------------------------------------------------------------- search and ask
 
-from app.backend import ingest, store
-from app.backend.main import Answer, ask, search
+from app.backend import documents, store, worker
+from app.backend.rag.answer import Answer, ask
+from app.backend.rag.search import search
 from tests.conftest import FIXTURES, FakeEmbedder
 
 
@@ -223,8 +224,8 @@ def library(deps, conn, *names):
     """Add and embed fixture PDFs; returns nothing. Page vectors come from FakeEmbedder (hash of the bytes)."""
     for name in names:
         with open(FIXTURES / name, "rb") as f:
-            ingest.add_file(conn, deps.cfg, name, f)
-        assert ingest.run_one(deps, conn) == "done"
+            documents.add_file(conn, deps.cfg, name, f)
+        assert worker.run_one(deps, conn) == "done"
 
 
 def query_matching(deps, doc_id, page):
