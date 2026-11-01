@@ -1139,3 +1139,22 @@ Recorded while building; each item is the smallest fix to the plan above.
     - `/api/ask` also returns the search `groups` it already computed.
     - FastAPI serves `index.html` for client routes such as `/library` on reload (`SPAFiles`: a 404 for a path
       without a file extension and outside `api/`).
+- **Web UI v4, 2026-11-01: a look of its own, a settings panel and a library filter** (user request).
+  - **Look:** a near-monochrome paper-and-graphite UI, so the colour comes from the document pages, with one
+    muted sage accent (#6b8a78; the user rejected a blue and then a highlighter-yellow accent as too bright) for
+    what was found or is pointed at: cited and hovered pages, link underlines, the focused ask box. Dark mode is
+    neutral graphite with a mid-tone sage (#7f9a88; a pastel sage looked mint there), and page rings sit 2 px off
+    the page so they show against white pages in both themes. Plus Jakarta Sans (as on openrouter.ai; user choice) replaces Geist, with Onest as the
+    fallback for Cyrillic, which Plus Jakarta Sans lacks.
+  - **Home page:** a larger single-field ask box, and below it the newest documents' first pages in their own
+    colours (a cyanotype tint was tried and rejected by the user). The Library tab shows no document count.
+  - **`GET /api/config`:** the answer and embedding settings, page image sizes and limits, read-only from
+    `.env` (never the API key), shown in a popover in the top bar.
+  - **Library filter:** client-side, every word must appear in the title or link. No server search: pages are
+    images without text, and the semantic Search on the home page already covers finding pages by content.
+- **Renamed to GriRAG, 2026-11-01 (user decision)**, with a new mark: a page outline that reads as a G, its dog-ear
+  in the sage accent (`web/src/components/logo.tsx`, `web/public/favicon.svg`, `assets/icon.svg`). Only
+  user-facing names changed (UI, tab titles, README title, the Python package name in `pyproject.toml`). The repo
+  folder, the Compose project name `pixelrag` and the Qdrant collection stay, since renaming the Compose project
+  would start new containers next to the running ones. References to the upstream PixelRAG project are credits
+  and stay as they are.

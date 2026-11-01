@@ -19,7 +19,7 @@ const linkCitations = (text: string) =>
 
 // Styles for the elements Markdown produces; the theme has no typography plugin.
 const prose =
-  'max-w-3xl space-y-3 text-base leading-7 wrap-break-word [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-sm [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_li]:mt-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-6'
+  'max-w-[72ch] space-y-3 text-base leading-7 wrap-break-word [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-sm [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_li]:mt-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-6'
 
 export function AnswerView({ answer, onOpen }: { answer: Answer; onOpen: (p: ViewerPage) => void }) {
   const [hovered, setHovered] = useState<number | null>(null)
@@ -49,7 +49,7 @@ export function AnswerView({ answer, onOpen }: { answer: Answer; onOpen: (p: Vie
                 onMouseLeave={() => setHovered(null)}
                 onFocus={() => setHovered(n)}
                 onBlur={() => setHovered(null)}
-                className="relative ml-0.5 inline-flex h-5 items-center rounded-full border bg-muted px-1.5 align-text-bottom text-xs font-medium after:absolute after:inset-x-0 after:-inset-y-2.5 hover:bg-primary hover:text-primary-foreground"
+                className="relative ml-0.5 inline-flex h-5 items-center rounded-full border bg-muted px-1.5 align-text-bottom text-xs font-medium after:absolute after:inset-x-0 after:-inset-y-2.5 hover:border-transparent hover:bg-highlight-soft hover:text-highlight-foreground focus-visible:bg-highlight-soft focus-visible:text-highlight-foreground"
               >
                 {children}
               </button>

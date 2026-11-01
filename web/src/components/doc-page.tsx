@@ -158,7 +158,7 @@ function Pages({ doc, onOpen }: { doc: Doc; onOpen: (page: number) => void }) {
             alt=""
             loading="lazy"
             className={cn(
-              'w-full rounded-md border bg-white object-contain transition-[box-shadow,filter] group-hover:ring-2 group-hover:ring-ring group-focus-visible:ring-2 group-focus-visible:ring-ring dark:brightness-85 dark:group-hover:brightness-100',
+              'w-full rounded-md border bg-white object-contain transition-[box-shadow,filter] group-hover:ring-3 group-hover:ring-highlight group-hover:ring-offset-2 group-hover:ring-offset-background group-focus-visible:ring-2 group-focus-visible:ring-ring dark:brightness-85 dark:group-hover:brightness-100',
               isCapture(doc) ? 'aspect-square' : 'aspect-[3/4]',
             )}
           />

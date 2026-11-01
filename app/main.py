@@ -225,6 +225,22 @@ def quota(deps: ingest.Deps = Depends(get_deps)):
                            f"(resets {fmt_time(next_utc_midnight())})"}
 
 
+@app.get("/api/config")
+def config_route(deps: ingest.Deps = Depends(get_deps)):
+    """The settings that shape answers and search, read-only (they come from .env). Never the API key."""
+    c = deps.cfg
+    return {
+        "answer": {"model": c.answer_model, "temperature": c.answer_temperature,
+                   "reasoning_effort": c.answer_reasoning_effort or None, "pages": c.answer_pages,
+                   "max_tokens": c.answer_max_tokens},
+        "embedding": {"model": c.embed_model, "batch_pages": c.embed_batch_pages,
+                      "query_type": c.embed_query_type, "passage_mode": c.passage_mode},
+        "pages": {"longest_edge_px": c.page_longest_edge_px, "jpeg_quality": c.jpeg_quality,
+                  "web_viewport_width": c.web_viewport_width, "web_slice_height": c.web_slice_height},
+        "limits": {"max_pages": c.max_pages, "max_web_pages": c.max_web_pages, "max_upload_mb": c.max_upload_mb},
+    }
+
+
 @app.post("/api/add")
 async def add(request: Request, deps: ingest.Deps = Depends(get_deps)):
     """Multipart: files (multiple) and urls (one per line)."""

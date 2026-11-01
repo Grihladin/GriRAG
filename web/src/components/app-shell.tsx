@@ -3,6 +3,8 @@ import { Link, Outlet, useLocation } from '@tanstack/react-router'
 import { CircleXIcon, ClockIcon, MoonIcon, PauseIcon, PlusIcon, SunIcon } from 'lucide-react'
 import type { Doc } from '@/api'
 import { AddPanel } from '@/components/add-panel'
+import { ConfigMenu } from '@/components/config-menu'
+import { Logo } from '@/components/logo'
 import { Warning } from '@/components/warning'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -20,7 +22,7 @@ export function AppShell() {
   const library = useLibrary()
   const docs = library.data?.docs ?? []
   const banner = library.error
-    ? `Can't reach the PixelRAG server (${library.error.message}). Is it running?`
+    ? `Can't reach the GriRAG server (${library.error.message}). Is it running?`
     : library.data?.banner
   // `key` gives every opening a fresh form; files dropped anywhere arrive as `files`.
   const [add, setAdd] = useState({ open: false, key: 0, files: [] as File[] })
@@ -44,8 +46,8 @@ export function AppShell() {
         <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:gap-6 sm:px-6">
             <Link to="/" className="flex shrink-0 items-center gap-2 font-semibold">
-              <img src="/favicon.svg" alt="" className="size-6" />
-              <span className="max-sm:sr-only">PixelRAG</span>
+              <Logo className="size-6" />
+              <span className="text-[1.05rem] font-bold tracking-[-0.02em] max-sm:sr-only">GriRAG</span>
             </Link>
             <nav className="flex gap-1 text-sm">
               <Link to="/" className={navLink} activeOptions={{ exact: true, includeSearch: false }}>
@@ -56,12 +58,15 @@ export function AppShell() {
                 className={cn(navLink, onDoc && 'bg-muted text-foreground')}
                 aria-current={onDoc ? 'page' : undefined}
               >
-                Library {docs.length > 0 && <span>{docs.length}</span>}
+                Library
               </Link>
             </nav>
             <div className="ml-auto flex items-center gap-1 sm:gap-4">
               <Activity docs={docs} paused={!!library.data?.banner} />
-              <ThemeButton />
+              <div className="flex items-center">
+                <ConfigMenu />
+                <ThemeButton />
+              </div>
               <Button onClick={() => openAdd()}>
                 <PlusIcon /> Add
               </Button>
