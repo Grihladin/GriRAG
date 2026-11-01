@@ -53,9 +53,13 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Paper and graphite: a near-monochrome UI, so the colour comes from the document pages themselves. The one accent
-   is a muted sage that marks what was found or is pointed at: cited and hovered pages, links, the focused ask box.
-   --highlight is for lines and rings, --highlight-soft for fills under --highlight-foreground text. */
+/* Three colour roles, nothing else (no Tailwind palette colours in components):
+   - graphite: everything neutral, including notices and "waiting";
+   - sage (--highlight): the one accent, for what was found or is pointed at (cited and hovered pages, links, the
+     focused ask box) and for "ready". --highlight is for lines and icons, --highlight-soft for fills under
+     --highlight-foreground text;
+   - a muted brick red (--destructive): errors and deleting, only.
+   The colour on screen comes from the document pages themselves. */
 :root {
     color-scheme: light;
     --background: #f4f4f1;          /* paper */
@@ -72,7 +76,7 @@
     --muted-foreground: #62625c;
     --accent: #eaeae6;
     --accent-foreground: #1d1d1b;
-    --destructive: #b42318;
+    --destructive: #a8433a;         /* muted brick */
     --border: #dcdcd6;
     --input: #cfcfc8;
     --ring: #1d1d1b;
@@ -111,7 +115,7 @@
     --muted-foreground: #a3a39b;
     --accent: #2a2a27;
     --accent-foreground: #edede8;
-    --destructive: #f28b82;
+    --destructive: #d98a80;
     --border: rgb(237 237 232 / 12%);
     --input: rgb(237 237 232 / 18%);
     --ring: #edede8;

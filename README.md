@@ -59,7 +59,8 @@ in `app/main.py`; FastAPI serves the built `web/dist` at `/`.
   Vite reloads on save and proxies `/api` and `/files` to the app on port 8000.
 - `cd web && npm run build` type-checks and builds; `npx shadcn@latest add <component>` adds a component.
 - `cd web && npm run lint` runs Oxlint with the [`@shadcn/lint`](https://github.com/shadcn-ui/lint) plugin
-  registered in `web/.oxlintrc.json`; its design-system rules are switched on in the `rules` there.
+  registered in `web/.oxlintrc.json`. `shadcn/no-raw-colors` is on: components use the theme tokens in
+  `web/src/index.css`, not Tailwind palette colours.
 
 ## Models and cost
 

@@ -91,7 +91,7 @@ export function LibraryPage() {
                       <DocStatus doc={d} />
                     </div>
                     {notice && action.variables?.id === d.id && (
-                      <p className="mt-1 pl-6 text-xs text-amber-700 first-letter:uppercase dark:text-amber-400">
+                      <p className="mt-1 pl-6 text-xs text-muted-foreground first-letter:uppercase">
                         {notice}
                       </p>
                     )}
