@@ -26,5 +26,6 @@ ignore = ["B008"]                # FastAPI's Depends() in argument defaults is t
 
 [tool.pytest.ini_options]
 pythonpath = ["."]              # package = false: without this, `import app` fails at collection
+testpaths = ["tests"]
 filterwarnings = ["ignore:builtin type (SwigPy|swigvarlink):DeprecationWarning",
                   "ignore:Using `httpx` with `starlette.testclient`"]

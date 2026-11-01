@@ -5,13 +5,15 @@ import time
 
 import pytest
 
-from app import Paused, RateLimited, ingest, store
+from app.backend import documents, store, worker
+from app.backend.errors import Paused, RateLimited
+from app.backend.rag import vectors
 from tests.conftest import FIXTURES, FakeOpenRouter, make_pdf
 
 
 def add(conn, cfg, path, name=None):
     with open(path, "rb") as f:
-        return ingest.add_file(conn, cfg, name or path.name, f)
+        return documents.add_file(conn, cfg, name or path.name, f)
 
 
 def row(conn, doc_id):
@@ -41,25 +43,25 @@ def test_add_pdf_and_dedup(deps, conn):
 
 
 def test_add_rejects_other_types(deps, conn):
-    with pytest.raises(ingest.Rejected):
-        ingest.add_file(conn, deps.cfg, "notes.txt", io.BytesIO(b"hello"))
+    with pytest.raises(documents.Rejected):
+        documents.add_file(conn, deps.cfg, "notes.txt", io.BytesIO(b"hello"))
     assert store.list_docs(conn) == []
 
 
 def test_add_rejects_too_large(deps, conn):
     cfg = dataclasses.replace(deps.cfg, max_upload_mb=1)
-    with pytest.raises(ingest.Rejected, match="larger than 1 MB"):
-        ingest.add_file(conn, cfg, "big.pdf", io.BytesIO(b"x" * (1024 * 1024 + 1)))
+    with pytest.raises(documents.Rejected, match="larger than 1 MB"):
+        documents.add_file(conn, cfg, "big.pdf", io.BytesIO(b"x" * (1024 * 1024 + 1)))
     assert list((cfg.data_dir / "tmp").iterdir()) == []
 
 
 def test_add_url_dedup_and_normalize(conn):
-    a = ingest.add_url(conn, "  https://Example.com/a?x=1#frag \n")
+    a = documents.add_url(conn, "  https://Example.com/a?x=1#frag \n")
     assert a == (1, True)
     assert row(conn, 1)["dedup_key"] == "url:https://example.com/a?x=1"
-    assert ingest.add_url(conn, "https://example.com/a?x=1") == (1, False)
-    with pytest.raises(ingest.Rejected):
-        ingest.add_url(conn, "ftp://example.com/file")
+    assert documents.add_url(conn, "https://example.com/a?x=1") == (1, False)
+    with pytest.raises(documents.Rejected):
+        documents.add_url(conn, "ftp://example.com/file")
 
 
 # ---------------------------------------------------------------- worker
@@ -67,7 +69,7 @@ def test_add_url_dedup_and_normalize(conn):
 def test_pdf_pipeline(deps, conn):
     add(conn, deps.cfg, FIXTURES / "sample.pdf")
     deps.cfg = dataclasses.replace(deps.cfg, embed_batch_pages=2)
-    assert ingest.run_one(deps, conn) == "done"
+    assert worker.run_one(deps, conn) == "done"
     r = row(conn, 1)
     assert (r["status"], r["page_count"], r["pages_embedded"]) == ("done", 3, 3)
     assert deps.embedder.page_calls == [2, 1]
@@ -75,21 +77,21 @@ def test_pdf_pipeline(deps, conn):
     meta = deps.qc.get_collection("pages").config.metadata
     assert meta == {"embed_model": deps.cfg.embed_model, "dim": 8, "passage_mode": "field:document"}
     assert deps.qc.retrieve("pages", [10002])[0].payload == {"doc_id": 1, "page": 2}
-    assert ingest.run_one(deps, conn) == "idle"
+    assert worker.run_one(deps, conn) == "idle"
 
 
 def test_rate_limited_then_resume(deps, conn):
     deps.cfg = dataclasses.replace(deps.cfg, embed_batch_pages=8)
     add(conn, deps.cfg, make_pdf(deps.cfg.data_dir / "twelve.pdf", 12))
     deps.embedder.fail_on[2] = RateLimited(time.time() + 3600, "daily free quota reached")
-    assert ingest.run_one(deps, conn) == "waiting"
+    assert worker.run_one(deps, conn) == "waiting"
     r = row(conn, 1)
     assert (r["status"], r["pages_embedded"]) == ("queued", 8)
     assert r["next_attempt_at"] > time.time() and "4 of 12 pages pending" in r["message"]
-    assert ingest.run_one(deps, conn) == "idle"            # not claimable before next_attempt_at
+    assert worker.run_one(deps, conn) == "idle"            # not claimable before next_attempt_at
     conn.execute("UPDATE documents SET next_attempt_at = 0")
     conn.commit()
-    assert ingest.run_one(deps, conn) == "done"
+    assert worker.run_one(deps, conn) == "done"
     assert deps.embedder.page_calls == [8, 4, 4]           # the failed call, then only pages 9-12 again
     assert len(points(deps)) == 12
 
@@ -99,7 +101,7 @@ def test_quota_budget_reserve(deps, conn):
                                    embed_batch_pages=1, or_reserve_requests=10)
     deps.openrouter = FakeOpenRouter(remaining=12)
     add(conn, deps.cfg, FIXTURES / "sample.pdf")
-    assert ingest.run_one(deps, conn) == "waiting"
+    assert worker.run_one(deps, conn) == "waiting"
     r = row(conn, 1)
     assert r["pages_embedded"] == 2 and "reserve" in r["message"]
     assert deps.embedder.page_calls == [1, 1]
@@ -108,11 +110,11 @@ def test_quota_budget_reserve(deps, conn):
 def test_paused_leaves_document_queued(deps, conn):
     add(conn, deps.cfg, FIXTURES / "sample.pdf")
     deps.embedder.fail_on[1] = Paused("Qdrant is not running: make up")
-    assert ingest.run_one(deps, conn) == "paused"
+    assert worker.run_one(deps, conn) == "paused"
     r = row(conn, 1)
     assert (r["status"], r["next_attempt_at"]) == ("queued", None)
     assert deps.status.paused == "Qdrant is not running: make up"
-    assert ingest.run_one(deps, conn) == "done"
+    assert worker.run_one(deps, conn) == "done"
 
 
 def test_unexpected_exception_goes_to_error_and_loop_continues(deps, conn):
@@ -120,7 +122,7 @@ def test_unexpected_exception_goes_to_error_and_loop_continues(deps, conn):
     add(conn, deps.cfg, FIXTURES / "sample2.pdf")
     deps.embedder.fail_on[1] = KeyError("boom")
     stop = threading.Event()
-    t = threading.Thread(target=ingest.worker_loop, args=(deps, stop))
+    t = threading.Thread(target=worker.worker_loop, args=(deps, stop))
     t.start()
     for _ in range(100):
         if row(conn, 2)["status"] == "done":
@@ -135,7 +137,7 @@ def test_unexpected_exception_goes_to_error_and_loop_continues(deps, conn):
 
 def test_bad_pdf_goes_to_error(deps, conn):
     add(conn, deps.cfg, FIXTURES / "encrypted.pdf")
-    assert ingest.run_one(deps, conn) == "error"
+    assert worker.run_one(deps, conn) == "error"
     assert row(conn, 1)["message"] == "password-protected PDF"
 
 
@@ -143,54 +145,54 @@ def test_bad_pdf_goes_to_error(deps, conn):
 
 def test_recover(deps, conn):
     add(conn, deps.cfg, FIXTURES / "sample.pdf")
-    ingest.run_one(deps, conn)
+    worker.run_one(deps, conn)
     add(conn, deps.cfg, FIXTURES / "sample2.pdf")
     conn.execute("UPDATE documents SET status = 'working' WHERE id = 2")
     conn.commit()
     conn.execute("DELETE FROM documents WHERE id = 1")      # a crash during delete: folder and points remain
     conn.commit()
-    store.recover(conn, deps.qc, deps.cfg)
+    worker.recover(conn, deps.qc, deps.cfg)
     assert row(conn, 2)["status"] == "queued"
     assert not (deps.cfg.data_dir / "docs/1").exists()
     assert points(deps, 1) == []
 
 
 def test_check_collection(deps, conn):
-    store.check_collection(deps.qc, conn, deps.cfg)          # empty: fine
+    vectors.check_collection(deps.qc, conn, deps.cfg)          # empty: fine
     add(conn, deps.cfg, FIXTURES / "sample.pdf")
-    ingest.run_one(deps, conn)
-    store.check_collection(deps.qc, conn, deps.cfg)          # matching: fine
+    worker.run_one(deps, conn)
+    vectors.check_collection(deps.qc, conn, deps.cfg)          # matching: fine
     other = dataclasses.replace(deps.cfg, embed_model="other/model:free")
     with pytest.raises(SystemExit, match="EMBED_MODEL changed from voyageai/voyage-multimodal-3.5 to "
                                          r"other/model:free: run 'make reembed' \(≈ 1 requests\)"):
-        store.check_collection(deps.qc, conn, other)
+        vectors.check_collection(deps.qc, conn, other)
     with pytest.raises(SystemExit, match="Passage mode changed"):
-        store.check_collection(deps.qc, conn, dataclasses.replace(deps.cfg, embed_square_pages=True))
+        vectors.check_collection(deps.qc, conn, dataclasses.replace(deps.cfg, embed_square_pages=True))
     deps.qc.delete_collection("pages")
     with pytest.raises(SystemExit, match="missing but 3 pages were embedded"):
-        store.check_collection(deps.qc, conn, deps.cfg)
+        vectors.check_collection(deps.qc, conn, deps.cfg)
 
 
 # ---------------------------------------------------------------- retry and delete
 
 def test_delete_refused_while_working_then_cleans_up(deps, conn):
     add(conn, deps.cfg, FIXTURES / "sample.pdf")
-    ingest.run_one(deps, conn)
+    worker.run_one(deps, conn)
     conn.execute("UPDATE documents SET status = 'working'")
     conn.commit()
-    assert ingest.delete(deps, conn, 1) == "busy (being processed), try again in a moment"
+    assert documents.delete(deps, conn, 1) == "busy (being processed), try again in a moment"
     conn.execute("UPDATE documents SET status = 'done'")
     conn.commit()
-    assert ingest.delete(deps, conn, 1) is None
+    assert documents.delete(deps, conn, 1) is None
     assert store.get(conn, 1) is None and points(deps) == []
     assert not (deps.cfg.data_dir / "docs/1").exists()
 
 
 def test_retry_compare_and_set(deps, conn):
     add(conn, deps.cfg, FIXTURES / "encrypted.pdf")
-    assert ingest.retry(deps, conn, 1) is not None            # queued, not waiting: refused
-    ingest.run_one(deps, conn)
-    assert ingest.retry(deps, conn, 1) is None
+    assert documents.retry(deps, conn, 1) is not None            # queued, not waiting: refused
+    worker.run_one(deps, conn)
+    assert documents.retry(deps, conn, 1) is None
     r = row(conn, 1)
     assert (r["status"], r["message"]) == ("queued", None)
 
@@ -203,7 +205,7 @@ from email.parser import BytesParser
 import httpx
 import pymupdf
 
-from app.convert import SCROLL_JS
+from app.backend.rag.convert import SCROLL_JS
 from tests.conftest import mock_http
 
 
@@ -252,8 +254,8 @@ class FakeWeb:
 def test_url_screenshot_pipeline(deps, conn):
     web = FakeWeb()
     deps.http = mock_http(web)
-    ingest.add_url(conn, "https://example.com/article")
-    assert ingest.run_one(deps, conn) == "done"
+    documents.add_url(conn, "https://example.com/article")
+    assert worker.run_one(deps, conn) == "done"
     (call,) = web.gotenberg_calls()
     assert call.url.path == "/forms/chromium/screenshot/url"
     parts = form_parts(call)
@@ -272,7 +274,7 @@ def test_office_pipeline(deps, conn):
     deps.http = mock_http(web)
     add(conn, deps.cfg, FIXTURES / "sample.docx")
     assert (deps.cfg.data_dir / "docs/1/original.docx").exists()
-    assert ingest.run_one(deps, conn) == "done"
+    assert worker.run_one(deps, conn) == "done"
     (call,) = web.gotenberg_calls()
     assert call.url.path == "/forms/libreoffice/convert"
     parts = form_parts(call)
@@ -285,8 +287,8 @@ def test_pdf_link_skips_gotenberg(deps, conn):
     url = "https://arxiv.org/pdf/1706.03762"
     web = FakeWeb(links={url: ("application/pdf", (FIXTURES / "sample.pdf").read_bytes())})
     deps.http = mock_http(web)
-    ingest.add_url(conn, url)
-    assert ingest.run_one(deps, conn) == "done"
+    documents.add_url(conn, url)
+    assert worker.run_one(deps, conn) == "done"
     assert web.gotenberg_calls() == []
     assert (deps.cfg.data_dir / "docs/1/doc.pdf").read_bytes() == (FIXTURES / "sample.pdf").read_bytes()
     assert row(conn, 1)["page_count"] == 3
@@ -296,8 +298,8 @@ def test_docx_link_goes_to_libreoffice(deps, conn):
     url = "https://example.com/files/plan"
     web = FakeWeb(links={url: (DOCX, (FIXTURES / "sample.docx").read_bytes())})
     deps.http = mock_http(web)
-    ingest.add_url(conn, url)
-    assert ingest.run_one(deps, conn) == "done"
+    documents.add_url(conn, url)
+    assert worker.run_one(deps, conn) == "done"
     assert [c.url.path for c in web.gotenberg_calls()] == ["/forms/libreoffice/convert"]
 
 
@@ -306,52 +308,52 @@ DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 def test_gotenberg_403_is_error_with_hint(deps, conn):
     deps.http = mock_http(FakeWeb(gotenberg_status=403))
-    ingest.add_url(conn, "https://nonexistent.invalid")
-    assert ingest.run_one(deps, conn) == "error"
+    documents.add_url(conn, "https://nonexistent.invalid")
+    assert worker.run_one(deps, conn) == "error"
     assert row(conn, 1)["message"].startswith("URL blocked or host not resolvable")
 
 
 def test_gotenberg_down_pauses_and_keeps_queued(deps, conn):
     deps.http = mock_http(FakeWeb(gotenberg_down=True))
-    ingest.add_url(conn, "https://example.com")
-    assert ingest.run_one(deps, conn) == "paused"
+    documents.add_url(conn, "https://example.com")
+    assert worker.run_one(deps, conn) == "paused"
     r = row(conn, 1)
     assert (r["status"], r["next_attempt_at"]) == ("queued", None)
     assert deps.status.paused == "Gotenberg is not running: make up"
     deps.http = mock_http(FakeWeb())
-    assert ingest.run_one(deps, conn) == "done"
+    assert worker.run_one(deps, conn) == "done"
 
 
 def test_no_quota_budget_for_paid_models(deps, conn):
     deps.cfg = dataclasses.replace(deps.cfg, embed_batch_pages=1)       # default embedder is paid
     deps.openrouter = FakeOpenRouter(remaining=0)
     add(conn, deps.cfg, FIXTURES / "sample.pdf")
-    assert ingest.run_one(deps, conn) == "done"
+    assert worker.run_one(deps, conn) == "done"
 
 
 def test_reembed(deps, conn, capsys):
     add(conn, deps.cfg, FIXTURES / "sample.pdf")
-    ingest.run_one(deps, conn)
-    assert ingest.reembed(deps.cfg, deps.qc, confirm=lambda p: "n") == 1        # 'n' changes nothing
+    worker.run_one(deps, conn)
+    assert worker.reembed(deps.cfg, deps.qc, confirm=lambda p: "n") == 1        # 'n' changes nothing
     assert deps.qc.collection_exists("pages") and row(conn, 1)["status"] == "done"
-    held = ingest.take_lock(deps.cfg)
-    assert ingest.reembed(deps.cfg, deps.qc, confirm=lambda p: "y") == 1        # the app holds the lock
+    held = worker.take_lock(deps.cfg)
+    assert worker.reembed(deps.cfg, deps.qc, confirm=lambda p: "y") == 1        # the app holds the lock
     assert "stop the web app first" in capsys.readouterr().out
     held.close()
     prompts = []
-    assert ingest.reembed(deps.cfg, deps.qc, confirm=lambda p: (prompts.append(p), "y")[1]) == 0
+    assert worker.reembed(deps.cfg, deps.qc, confirm=lambda p: (prompts.append(p), "y")[1]) == 0
     assert "about 1 requests" in prompts[0]
     assert not deps.qc.collection_exists("pages")
     r = row(conn, 1)
     assert (r["status"], r["pages_embedded"]) == ("queued", 0)
-    assert ingest.run_one(deps, conn) == "done" and len(points(deps)) == 3      # re-embedded from the JPEGs
+    assert worker.run_one(deps, conn) == "done" and len(points(deps)) == 3      # re-embedded from the JPEGs
 
 
 def test_too_tall_page_falls_back_to_clipped_capture(deps, conn):
     web = FakeWeb(empty_unclipped=True)
     deps.http = mock_http(web)
-    ingest.add_url(conn, "https://en.wikipedia.org/wiki/History_of_the_United_States")
-    assert ingest.run_one(deps, conn) == "done"
+    documents.add_url(conn, "https://en.wikipedia.org/wiki/History_of_the_United_States")
+    assert worker.run_one(deps, conn) == "done"
     first, second = web.gotenberg_calls()
     assert form_parts(first)["clip"][1] == "false"
     assert (form_parts(second)["clip"][1], form_parts(second)["height"][1]) == ("true", str(40 * 1120))

@@ -118,6 +118,9 @@ No PixelRAG code is imported or copied. The app's README credits PixelRAG (Apach
 ```
 
 **Components (one job each)**
+
+> Since 2026-11-01 the modules below live in `app/backend/` and `app/backend/rag/`, split further (§15, "Code layout"; tree in §9).
+
 - **Browser page**: add files and links, see the library, search and ask. Plain HTML plus htmx.
 - `app/main.py`: FastAPI routes, plus `search()`, `ask()` and `build_messages()`. The lifespan hook checks the key, takes the worker lock, checks the collection, runs recovery, then starts the worker thread. Serves `data/docs` at `/files`.
 - `app/ingest.py`: `add_file`/`add_url` (validate, dedup, enqueue), the worker loop (convert → render → embed → upsert), `retry`, `delete`, `reembed`.
@@ -731,18 +734,27 @@ At startup the app exits if `OPENROUTER_API_KEY` is empty or still the `sk-or-..
 ├── docker-compose.yml
 ├── Makefile
 ├── assets/icon.svg          # exists
-├── app/
-│   ├── __init__.py          # DocError, Paused, RateLimited
-│   ├── config.py            # Config dataclass + load_config(): env → typed values with defaults
-│   ├── store.py             # SQLite: connect, schema, claim, recover, CAS; Qdrant: check, upsert, groups, delete
-│   ├── convert.py           # fetch_direct(), url_to_screenshot(), office_to_pdf(), render_pages(), slice_screenshot(); WEB_SHOT, SCROLL_JS
-│   ├── openrouter.py        # OpenRouter: post() with slot throttle, free_quota(), chat(), 429 + error mapping
-│   ├── embedder.py          # Embedder protocol, OpenRouterEmbedder (field or prefix mode)
-│   ├── ingest.py            # Deps, add_file(), add_url(), process(), worker_loop(), retry(), delete(), reembed()
-│   ├── main.py              # FastAPI app, lifespan, routes, search(), ask(), build_messages()
-│   ├── cli.py               # smoke | reembed
-│   ├── templates/           # index.html, _library.html, _results.html, _answer.html
-│   └── static/htmx.min.js   # vendored 2.0.11
+├── app/                     # layout since 2026-11-01 (§15, "Code layout")
+│   ├── backend/
+│   │   ├── errors.py        # DocError, Paused, RateLimited
+│   │   ├── config.py        # Config dataclass + load_config(): env → typed values with defaults; setup_logging()
+│   │   ├── store.py         # SQLite: connect, schema, every query (claim, CAS, requeue); document folders and URLs
+│   │   ├── deps.py          # Deps (what the routes and the worker share), WorkerStatus
+│   │   ├── documents.py     # add_file(), add_url(), add_all(), retry(), delete() (request thread)
+│   │   ├── worker.py        # run_one(), worker_loop(), recover(), take_lock(), reembed()
+│   │   ├── api.py           # the JSON routes under /api
+│   │   ├── main.py          # FastAPI app, lifespan, SPAFiles for the built UI
+│   │   ├── cli.py           # smoke | reembed
+│   │   └── rag/
+│   │       ├── openrouter.py  # OpenRouter: post() with slot throttle, free_quota(), chat(), 429 + error mapping
+│   │       ├── convert.py     # fetch_direct(), url_to_screenshot(), office_to_pdf(), convert_doc(); SCROLL_JS
+│   │       ├── render.py      # render_pages(), slice_screenshot(), square_jpeg() (PyMuPDF)
+│   │       ├── embedder.py    # Embedder protocol, OpenRouterEmbedder (field or prefix mode)
+│   │       ├── vectors.py     # Qdrant: check_collection(), upsert(), search_groups(), delete_points()
+│   │       ├── ingest.py      # process(): convert → render → embed → upsert for one document
+│   │       ├── search.py      # Hit, search()
+│   │       └── answer.py      # SYSTEM_PROMPT, build_messages(), ask()
+│   └── frontend/            # React + Vite + shadcn/ui; built to app/frontend/dist (was web/, and before that templates/ + htmx)
 └── tests/
     ├── make_fixtures.py     # one-off generator; its outputs are committed
     ├── fixtures/            # sample.pdf, sample2.pdf, sample.docx, encrypted.pdf, not_a_pdf.pdf (a few KB each)
@@ -1161,3 +1173,11 @@ Recorded while building; each item is the smallest fix to the plan above.
   folder, the Compose project name `pixelrag` and the Qdrant collection stay, since renaming the Compose project
   would start new containers next to the running ones. References to the upstream PixelRAG project are credits
   and stay as they are.
+- **Code layout, 2026-11-01 (user request: "polish it").** `app/` now holds `backend/` and `frontend/` (the former
+  `web/`), and the RAG pipeline sits in `app/backend/rag/`. Modules were split so each has one job (tree in §9):
+  `main.py` into `main.py` (app, lifespan), `api.py` (routes), `rag/search.py` and `rag/answer.py`; `ingest.py` by
+  thread into `documents.py` (request thread), `worker.py` (loop, recovery, lock, reembed) and `rag/ingest.py` (one
+  document through the pipeline), with `Deps` in `deps.py`; `store.py` into SQLite (`store.py`, now all SQL) and
+  Qdrant (`rag/vectors.py`); `convert.py` into Gotenberg and downloads (`rag/convert.py`) and PyMuPDF
+  (`rag/render.py`). The exceptions moved from `app/__init__.py` to `errors.py`. Run with
+  `uvicorn app.backend.main:app` and `python -m app.backend.cli`. Behaviour and the JSON API are unchanged.

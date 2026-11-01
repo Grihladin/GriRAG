@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from app.config import Config
+from app.backend.config import Config
 
 
 @pytest.fixture
@@ -50,8 +50,8 @@ from pathlib import Path
 
 from qdrant_client import QdrantClient
 
-from app import store
-from app.ingest import Deps
+from app.backend import store
+from app.backend.deps import Deps
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

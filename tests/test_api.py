@@ -7,8 +7,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app import Paused, store
-from app.main import SPAFiles, app
+from app.backend import store
+from app.backend.errors import Paused
+from app.backend.main import SPAFiles, app
 from tests.conftest import FIXTURES, FakeOpenRouter
 from tests.test_query import library, query_matching
 
