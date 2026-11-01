@@ -1,5 +1,5 @@
 [project]
-name = "pixelrag-app"
+name = "grirag"
 version = "0.1.0"
 description = "Personal visual RAG: documents -> page images -> OpenRouter embeddings -> Qdrant -> vision LLM"
 requires-python = ">=3.12,<3.13"

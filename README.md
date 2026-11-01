@@ -1,12 +1,15 @@
 <img src="assets/icon.svg" width="64" height="64" alt="">
 
-# PixelRAG (personal)
+# GriRAG
 
 A local, single-user visual RAG: add PDFs, DOCX files and web links, then search them or ask questions.
 Every document becomes page images, the page images are embedded with a vision embedding model, and a
 vision LLM answers from the retrieved pages with [S1]–[S3] citations. The approach follows
 [PixelRAG](https://github.com/StarTrail-org/PixelRAG) (Apache-2.0); no PixelRAG code is used. The answer
 prompt is adapted from PixelRAG's `SYSTEM_PROMPT_EVIDENCE_QA`. See `PLAN.md` for the design.
+
+The app was called PixelRAG until 2026-11-01. The folder, the Docker Compose project (`pixelrag`) and the Qdrant
+collection keep their old names: renaming them would recreate the containers away from the stored vectors.
 
 ## Setup
 
@@ -32,7 +35,12 @@ Needs uv, Node.js, Docker Desktop (with the default 4 GB VM) and an OpenRouter a
   matching pages are listed below the answer. Switch to **Search** to only find pages, without the model. On a
   results page the switch shows the same question in the other mode. `/` focuses the box; Back/Forward go through
   earlier questions.
-- **Library:** every document with its status. A document's page (click its title) shows all its pages.
+- The home page also shows the first page of the 24 newest documents. Click a page to open its document.
+- **Library:** every document with its status. Type in the filter (or press `/`) to narrow the list by title or
+  link; Escape clears it. A document's page (click its title) shows all its pages.
+- **Models and settings** (the sliders button in the top bar, labelled with the answer model on wide screens)
+  shows the answer model, its temperature and reasoning effort, the embedding model, the page image sizes and
+  the limits. It is read-only: change the values in `.env` and restart the app.
 - **Retry** a failed or waiting document; **Delete** removes its row, vectors and files. To refresh a web page,
   delete it and add the link again.
 - The sun/moon button switches between light and dark; choosing the theme your system uses makes the app follow
@@ -50,6 +58,8 @@ in `app/main.py`; FastAPI serves the built `web/dist` at `/`.
 - Run `make run` in one terminal and `cd web && npm run dev` in another, then open http://localhost:5173.
   Vite reloads on save and proxies `/api` and `/files` to the app on port 8000.
 - `cd web && npm run build` type-checks and builds; `npx shadcn@latest add <component>` adds a component.
+- `cd web && npm run lint` runs Oxlint with the [`@shadcn/lint`](https://github.com/shadcn-ui/lint) plugin
+  registered in `web/.oxlintrc.json`; its design-system rules are switched on in the `rules` there.
 
 ## Models and cost
 

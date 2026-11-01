@@ -40,6 +40,13 @@ export type AskResult = {
   message: string | null
 }
 
+export type Config = {
+  answer: { model: string; temperature: number; reasoning_effort: string | null; pages: number; max_tokens: number }
+  embedding: { model: string; batch_pages: number; query_type: string; passage_mode: string }
+  pages: { longest_edge_px: number; jpeg_quality: number; web_viewport_width: number; web_slice_height: number }
+  limits: { max_pages: number; max_web_pages: number; max_upload_mb: number }
+}
+
 export const pageUrl = (docId: number, page: number) => `/files/${docId}/pages/${String(page).padStart(4, '0')}.jpg`
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -56,6 +63,7 @@ const post = (body: unknown) => ({
 
 export const api = {
   library: () => call<Library>('/api/library'),
+  config: () => call<Config>('/api/config'),
   quota: () => call<{ quota: string | null }>('/api/quota'),
   add: (form: FormData) => call<AddResult>('/api/add', { method: 'POST', body: form }),
   search: (q: string) => call<SearchResult>(`/api/search?q=${encodeURIComponent(q)}`),

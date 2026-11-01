@@ -62,8 +62,8 @@ export function PageThumb({ hit: h, caption, label, highlight, onOpen }: ThumbPr
         alt=""
         loading="lazy"
         className={cn(
-          'aspect-[3/4] w-full rounded-md border bg-white object-contain object-top transition-[box-shadow,filter] group-hover:ring-2 group-hover:ring-ring group-focus-visible:ring-2 group-focus-visible:ring-ring dark:brightness-85 dark:group-hover:brightness-100',
-          highlight && 'ring-2 ring-primary ring-offset-2 ring-offset-card',
+          'aspect-[3/4] w-full rounded-md border bg-white object-contain object-top transition-[box-shadow,filter] group-hover:ring-3 group-hover:ring-highlight group-hover:ring-offset-2 group-hover:ring-offset-card group-focus-visible:ring-2 group-focus-visible:ring-ring dark:brightness-85 dark:group-hover:brightness-100',
+          highlight && 'ring-3 ring-highlight ring-offset-2 ring-offset-card',
         )}
       />
       <span className="block truncate text-xs text-muted-foreground" title={caption}>

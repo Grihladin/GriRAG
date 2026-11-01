@@ -179,3 +179,13 @@ def test_spa_fallback(tmp_path):
     assert c.get("/").text == c.get("/library").text == c.get("/docs/3").text == "app"
     assert c.get("/app.js").text == "js"
     assert c.get("/missing.js").status_code == c.get("/api/nope").status_code == 404
+
+
+# ---------------------------------------------------------------- config
+
+def test_config_shows_models_but_not_the_key(client, deps):
+    cfg = client.get("/api/config").json()
+    assert cfg["answer"]["model"] == deps.cfg.answer_model
+    assert cfg["answer"]["temperature"] == deps.cfg.answer_temperature
+    assert cfg["embedding"]["model"] == deps.cfg.embed_model
+    assert deps.cfg.openrouter_api_key not in str(cfg)

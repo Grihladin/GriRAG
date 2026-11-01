@@ -159,7 +159,7 @@ URL ─► streamed GET ─► application/pdf ──► download ────�
 **Query flow**
 ```
 question ─► OpenRouter /embeddings (query mode; cached per text)
-         ─► Qdrant query_points_groups(group_by="doc_id", limit=10, group_size=3)
+         ─► Qdrant query_points_groups(group_by="doc_id", limit=10, group_size=max(ANSWER_PAGES, 3))
          ─► join documents in SQLite (groups without a row are dropped)
          ─► Search: groups ─► thumbnails
          ─► Ask:    3 best pages overall + question ─► OpenRouter /chat/completions
@@ -534,7 +534,7 @@ def ask(deps, conn, question: str) -> Answer      # Answer(text: str, sources: l
 ```
 
 1. `groups = search(question)`, with the same handling for a blank question and an empty library. If there are no hits, return "No matching pages." without a chat request.
-2. `sources` = the `ANSWER_PAGES` (3) best pages across all groups, by score. The overall top 3 are always inside the groups, because each of them is among its own document's top 3.
+2. `sources` = the `ANSWER_PAGES` (8) best pages across all groups, by score. `group_size` is `max(ANSWER_PAGES, 3)`, so the overall top `ANSWER_PAGES` are always inside the groups: each of them is among its own document's top `ANSWER_PAGES`.
 3. Images: the stored JPEGs (longest edge 1536 px) as base64 data URLs, with no `detail` field.
 4. Request: `POST /api/v1/chat/completions`, non-streaming. The question text comes first, then the images, per OpenRouter's [image guide](https://openrouter.ai/docs/guides/overview/multimodal/image-understanding.md). A short label before each image ties it to its citation:
 
@@ -819,7 +819,7 @@ package = false
 pythonpath = ["."]              # package = false: without this, `import app` fails at collection
 ```
 
-**`.env.example`.** `config.py` reads `os.environ`, and `uv run --env-file .env` loads the file, so `python-dotenv` is not needed. Comments sit on their own lines. Only the values you are expected to change are listed; every other constant in `config.py` (`ANSWER_PAGES=3`, `ANSWER_MAX_TOKENS=2048`, `OR_MIN_INTERVAL_S=3.2`, `PAGE_LONGEST_EDGE_PX=1536`, `JPEG_QUALITY=85`, `MAX_PAGES=500` (≤ 9999), `MAX_WEB_PAGES=40`, `MAX_UPLOAD_MB=200`, `SEARCH_GROUPS=10`, `OFFICE_EXTENSIONS=.docx`, `GOTENBERG_URL=http://127.0.0.1:3100`, `QDRANT_URL=http://127.0.0.1:6333`, `QDRANT_COLLECTION=pages`, `DATA_DIR=data`) can be overridden the same way.
+**`.env.example`.** `config.py` reads `os.environ`, and `uv run --env-file .env` loads the file, so `python-dotenv` is not needed. Comments sit on their own lines. Only the values you are expected to change are listed; every other constant in `config.py` (`ANSWER_PAGES=8`, `ANSWER_MAX_TOKENS=2048`, `OR_MIN_INTERVAL_S=3.2`, `PAGE_LONGEST_EDGE_PX=1536`, `JPEG_QUALITY=85`, `MAX_PAGES=500` (≤ 9999), `MAX_WEB_PAGES=40`, `MAX_UPLOAD_MB=200`, `SEARCH_GROUPS=10`, `OFFICE_EXTENSIONS=.docx`, `GOTENBERG_URL=http://127.0.0.1:3100`, `QDRANT_URL=http://127.0.0.1:6333`, `QDRANT_COLLECTION=pages`, `DATA_DIR=data`) can be overridden the same way.
 
 ```
 OPENROUTER_API_KEY=sk-or-...
@@ -1139,3 +1139,22 @@ Recorded while building; each item is the smallest fix to the plan above.
     - `/api/ask` also returns the search `groups` it already computed.
     - FastAPI serves `index.html` for client routes such as `/library` on reload (`SPAFiles`: a 404 for a path
       without a file extension and outside `api/`).
+- **Web UI v4, 2026-11-01: a look of its own, a settings panel and a library filter** (user request).
+  - **Look:** a near-monochrome paper-and-graphite UI, so the colour comes from the document pages, with one
+    muted sage accent (#6b8a78; the user rejected a blue and then a highlighter-yellow accent as too bright) for
+    what was found or is pointed at: cited and hovered pages, link underlines, the focused ask box. Dark mode is
+    neutral graphite with a mid-tone sage (#7f9a88; a pastel sage looked mint there), and page rings sit 2 px off
+    the page so they show against white pages in both themes. Plus Jakarta Sans (as on openrouter.ai; user choice) replaces Geist, with Onest as the
+    fallback for Cyrillic, which Plus Jakarta Sans lacks.
+  - **Home page:** a larger single-field ask box, and below it the newest documents' first pages in their own
+    colours (a cyanotype tint was tried and rejected by the user). The Library tab shows no document count.
+  - **`GET /api/config`:** the answer and embedding settings, page image sizes and limits, read-only from
+    `.env` (never the API key), shown in a popover in the top bar.
+  - **Library filter:** client-side, every word must appear in the title or link. No server search: pages are
+    images without text, and the semantic Search on the home page already covers finding pages by content.
+- **Renamed to GriRAG, 2026-11-01 (user decision)**, with a new mark: a page outline that reads as a G, its dog-ear
+  in the sage accent (`web/src/components/logo.tsx`, `web/public/favicon.svg`, `assets/icon.svg`). Only
+  user-facing names changed (UI, tab titles, README title, the Python package name in `pyproject.toml`). The repo
+  folder, the Compose project name `pixelrag` and the Qdrant collection stay, since renaming the Compose project
+  would start new containers next to the running ones. References to the upstream PixelRAG project are credits
+  and stay as they are.

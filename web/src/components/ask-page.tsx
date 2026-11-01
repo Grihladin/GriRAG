@@ -5,6 +5,7 @@ import { ArrowRightIcon, RotateCwIcon, SearchIcon, SparklesIcon } from 'lucide-r
 import { api, type AskResult } from '@/api'
 import { AddPanel } from '@/components/add-panel'
 import { AnswerView } from '@/components/answer-view'
+import { LightTable } from '@/components/light-table'
 import { PageViewer, type ViewerPage } from '@/components/page-viewer'
 import { SearchResults } from '@/components/search-results'
 import { Warning } from '@/components/warning'
@@ -14,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { isProcessing, plural, useLibrary } from '@/lib/library'
+import { isProcessing, useLibrary } from '@/lib/library'
 import { useTitle } from '@/lib/title'
 import { cn } from '@/lib/utils'
 
@@ -30,19 +31,23 @@ export function AskPage() {
   if (q) return <Results key={`${mode}:${q}`} q={q} mode={mode} quota={quota.data?.quota} />
   if (library.isSuccess && !library.data.docs.length) return <FirstRun />
   const docs = library.data?.docs ?? []
-  const pages = docs.reduce((n, d) => n + (d.page_count ?? 0), 0)
   const processing = docs.filter(isProcessing).length
   return (
-    <div className="mx-auto max-w-2xl space-y-4 pt-[12vh]">
-      <h1 className="text-center text-2xl font-semibold">Ask your documents</h1>
-      <AskForm mode={mode} />
-      {docs.length > 0 && (
-        <p className="text-center text-sm text-balance text-muted-foreground">
-          {plural(docs.length, 'document')} · {plural(pages, 'page')}
-          {processing > 0 && ` · ${processing} still processing`}
-        </p>
-      )}
-      {quota.data?.quota && <p className="text-center text-xs text-muted-foreground">{quota.data.quota}</p>}
+    <div className="mx-auto max-w-3xl space-y-16 pt-[8vh] pb-8">
+      <div className="space-y-6">
+        <div className="space-y-3">
+          <h1 className="font-heading text-[clamp(2rem,6vw,2.875rem)] leading-[1.08] font-bold tracking-[-0.03em] text-balance">
+            Ask your documents
+          </h1>
+          <p className="max-w-[58ch] text-pretty text-muted-foreground">
+            Ask gets an answer read from your best-matching pages, with every statement linked to its page. Search
+            only finds the pages.
+          </p>
+        </div>
+        <AskForm mode={mode} />
+        {quota.data?.quota && <p className="text-xs text-muted-foreground">{quota.data.quota}</p>}
+      </div>
+      {docs.length > 0 && <LightTable docs={docs} processing={processing} />}
     </div>
   )
 }
@@ -51,7 +56,7 @@ function FirstRun() {
   return (
     <div className="mx-auto max-w-xl space-y-6 pt-[8vh]">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-semibold">Welcome to PixelRAG</h1>
+        <h1 className="font-heading text-[2rem] leading-tight font-bold tracking-[-0.025em]">Welcome to GriRAG</h1>
         <p className="text-balance text-muted-foreground">
           Add PDFs, Word files or web links. Every page becomes an image you can search, and questions are answered
           from the best pages, with the sources cited.
@@ -67,7 +72,7 @@ function FirstRun() {
 }
 
 const modeItem =
-  'h-full rounded-md px-2.5 text-muted-foreground hover:text-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm max-sm:flex-1'
+  'h-full rounded-md px-3 text-muted-foreground hover:text-foreground data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm max-sm:flex-1'
 
 function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
   const navigate = useNavigate({ from: '/' })
@@ -103,7 +108,11 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-wrap gap-2 sm:flex-nowrap">
+    // One field: the box, the mode and the button share a border, and the focus ring goes around all of them.
+    <form
+      onSubmit={submit}
+      className="flex flex-wrap items-center gap-1.5 rounded-xl border border-input bg-card p-1.5 shadow-sm transition-[border-color,box-shadow] focus-within:border-highlight focus-within:ring-4 focus-within:ring-highlight/20 dark:focus-within:ring-0 sm:flex-nowrap"
+    >
       <Input
         ref={input}
         autoFocus
@@ -112,7 +121,7 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
         placeholder={m === 'ask' ? 'Ask a question about your documents' : 'Search your documents'}
         aria-label="Question"
         aria-keyshortcuts="/"
-        className="h-10 flex-1"
+        className="h-10 flex-1 border-0 bg-transparent px-3 shadow-none focus-visible:ring-0 sm:h-11 md:text-base dark:bg-transparent"
       />
       <ToggleGroup
         type="single"
@@ -125,7 +134,7 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
           if (q && text.trim() === q) navigate({ search: { q, mode: v === 'search' ? 'search' : undefined } })
         }}
         aria-label="Mode"
-        className="h-10 rounded-lg bg-muted p-[3px] max-sm:order-last max-sm:w-full"
+        className="h-10 rounded-lg bg-muted p-[3px] max-sm:order-last max-sm:w-full sm:h-11"
       >
         <ToggleGroupItem value="ask" className={modeItem}>
           <SparklesIcon /> Ask
@@ -137,7 +146,7 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
       <Button
         type="submit"
         size="icon-lg"
-        className="size-10"
+        className="size-10 rounded-lg sm:size-11"
         aria-label={m === 'ask' ? 'Ask' : 'Search'}
         title={m === 'ask' ? 'Ask' : 'Search'}
       >
