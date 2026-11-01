@@ -6,7 +6,7 @@ Ask questions about your PDFs, Word files and web pages. GriRAG reads every page
 charts and layout survive, and answers with citations to the exact pages it used. It runs on your computer,
 for one user.
 
-<img src="assets/screenshot.png" alt="GriRAG answering a question about US history with citations to Wikipedia pages, the cited pages shown as thumbnails below the answer.">
+<img src="assets/screenshot.png" alt="GriRAG answering when the United States was established, citing one Wikipedia page, with that page under Sources and all matching pages below.">
 
 ## How it works
 
@@ -42,10 +42,12 @@ make run       # http://127.0.0.1:8000
 
 ## Using it
 
+<img src="assets/screenshot-home.png" alt="The GriRAG home page: an Ask box with Ask and Search modes, and the first page of each document in the library.">
+
 - **Add** files (or drop them anywhere) and links, one per line. Links to a PDF or DOCX are downloaded; other
   links are screenshotted.
-- **Ask** a question to get an answer with citations; click one to see the page. **Search** finds pages
-  without calling the answer model.
+- **Ask** a question to get an answer with citations. Sources shows the pages it cited, and every matching
+  page follows below; click a page to see it large. **Search** finds pages without calling the answer model.
 - **Library** lists every document with its status, with Retry and Delete.
 - **Settings** shows the models and limits. Change them in `.env` and restart.
 
