@@ -6,17 +6,19 @@ Ask questions about your PDFs, Word files and web pages. GriRAG reads every page
 charts and layout survive, and answers with citations to the exact pages it used. It runs on your computer,
 for one user.
 
+<img src="assets/screenshot.png" alt="GriRAG answering a question about US history with citations to Wikipedia pages, the cited pages shown as thumbnails below the answer.">
+
 ## How it works
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/pipeline-dark.png">
-  <img src="assets/pipeline.png" alt="Add a document: PDF, DOCX or link, then PDF or screenshot (Gotenberg), page images (PyMuPDF), page vectors (Voyage via OpenRouter), Qdrant. Ask a question: question, query vector, 3 best pages from Qdrant, vision model, answer with [S1]–[S3].">
+  <img src="assets/pipeline.png" alt="Add a document: PDF, DOCX or link, then PDF or screenshot (Gotenberg), page images (PyMuPDF), page vectors (Voyage via OpenRouter), Qdrant. Ask a question: question, query vector, 8 best pages from Qdrant, vision model, answer with page citations.">
 </picture>
 
 Every document becomes page images: Word files and web pages go through Gotenberg first, web pages as a
 screenshot cut into pages. Each page is embedded with a multimodal model and stored in Qdrant. A question is
-embedded the same way, the 3 closest pages are sent to a vision model, and it answers only from them, citing
-[S1]–[S3].
+embedded the same way, the 8 closest pages are sent to a vision model, and it answers only from them, citing
+each page it used ([S1], [S2], …).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/architecture-dark.png">
@@ -47,6 +49,12 @@ make run       # http://127.0.0.1:8000
 - **Library** lists every document with its status, with Retry and Delete.
 - **Settings** shows the models and limits. Change them in `.env` and restart.
 
+## Models and cost
+
+Pages are embedded with `voyageai/voyage-multimodal-3.5` (about $1 per 1,000 pages) and questions answered by
+`meta/muse-spark-1.3-contributor` (under $0.001 each), both through OpenRouter. Every call is logged with its
+cost. Models are set in `.env`; `.env.example` lists the options, including free ones.
+
 ## Commands
 
 | Command | What it does |
@@ -57,16 +65,10 @@ make run       # http://127.0.0.1:8000
 | `make test` | Unit tests, no network or Docker |
 | `make lint` | Ruff and Oxlint |
 
-## Models and cost
-
-Pages are embedded with `voyageai/voyage-multimodal-3.5` (about $1 per 1,000 pages) and questions answered by
-`meta/muse-spark-1.3-contributor` (under $0.001 each), both through OpenRouter. Every call is logged with its
-cost. Models are set in `.env`; `.env.example` lists the options, including free ones.
-
 ## Limitations
 
 - No OCR, keyword search or follow-up questions.
-- Answers use 3 pages, so facts spread over more pages can be missed.
+- Answers read the 8 best pages (`ANSWER_PAGES`), so facts spread over more pages can be missed.
 - Web pages keep their first 40 pages; logged-in and paywalled sites index the login page.
 - No authentication: keep it on 127.0.0.1.
 
