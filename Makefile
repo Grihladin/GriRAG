@@ -1,5 +1,5 @@
 RUN = uv run --env-file .env
-.PHONY: setup up down web run test smoke reembed
+.PHONY: setup up down web run test lint smoke reembed
 
 setup:          ## once
 	uv sync
@@ -29,6 +29,10 @@ run: up web     ## web app on http://127.0.0.1:8000
 
 test:           ## unit tests, no network, no Docker
 	uv run pytest
+
+lint:           ## Ruff for the Python code, Oxlint (+ @shadcn/lint) for web/
+	uv run ruff check .
+	cd web && npm run lint
 
 smoke: up       ## M0 live checks, ~5 free requests; e.g. make smoke ARGS="--passage-type document"
 	$(RUN) python -m app.cli smoke $(ARGS)

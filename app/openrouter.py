@@ -2,7 +2,7 @@
 import logging
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -20,7 +20,7 @@ BATCH_HINT = ("if this is about size (image_too_large is a 400, payload_too_larg
 
 
 def next_utc_midnight(now: float | None = None) -> float:
-    d = datetime.fromtimestamp(time.time() if now is None else now, timezone.utc)
+    d = datetime.fromtimestamp(time.time() if now is None else now, UTC)
     return (d.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)).timestamp()
 
 
@@ -125,7 +125,7 @@ class OpenRouter:
             r = self.http.get(self.cfg.openrouter_url + "/key", headers=self._headers, timeout=15)
             q = r.json()["data"]["free_model_daily_requests"]
             value = {k: int(q[k]) for k in ("used", "limit", "remaining")}
-        except Exception:                        # quota line is optional
+        except Exception:  # noqa: BLE001 -- the quota line is optional
             value = None
         self._quota_cache = (self.clock(), value)
         return value

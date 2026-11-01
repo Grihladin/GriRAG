@@ -11,9 +11,9 @@ from pathlib import Path
 import httpx
 from fastapi import Body, Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from starlette.exceptions import HTTPException
 from qdrant_client import QdrantClient
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException
 
 from app import DocError, Paused, RateLimited, ingest, store
 from app.config import check_key, load_config
@@ -110,7 +110,7 @@ def ask(deps: ingest.Deps, conn, question: str) -> Answer | str:
         return user_message(e)
     except (DocError, Paused) as e:
         return str(e)
-    return Answer(re.sub(r"<think>.*?</think>", "", content, flags=re.S).strip(), sources, model, groups)
+    return Answer(re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip(), sources, model, groups)
 
 
 def build_messages(question: str, pages: list[tuple[str, bytes]]) -> list[dict]:
@@ -267,9 +267,9 @@ async def add(request: Request, deps: ingest.Deps = Depends(get_deps)):
 
         try:
             for f in files:
-                record(lambda: ingest.add_file(conn, deps.cfg, f.filename, f.file))
+                record(lambda f=f: ingest.add_file(conn, deps.cfg, f.filename, f.file))
             for u in urls:
-                record(lambda: ingest.add_url(conn, u))
+                record(lambda u=u: ingest.add_url(conn, u))
         finally:
             conn.close()
         return result

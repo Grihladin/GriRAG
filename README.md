@@ -49,6 +49,7 @@ Needs uv, Node.js, Docker Desktop (with the default 4 GB VM) and an OpenRouter a
 - `make reembed` (app stopped) re-embeds everything from the stored page images, after changing `EMBED_MODEL`
   or another embedding setting, or if the Qdrant data was lost. It prints the request count and asks first.
 - `make test` runs the unit tests (no network, no Docker).
+- `make lint` runs Ruff on the Python code and Oxlint (with `@shadcn/lint`) on `web/`.
 
 ## Web UI development
 

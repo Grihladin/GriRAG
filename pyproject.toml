@@ -13,10 +13,16 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest==9.2.0"]
+dev = ["pytest==9.2.0", "ruff==0.17.3"]
 
 [tool.uv]
 package = false
+
+[tool.ruff]
+line-length = 120                # the code is written to ~120 columns; `ruff format` is not used
+
+[tool.ruff.lint]
+ignore = ["B008"]                # FastAPI's Depends() in argument defaults is the intended pattern
 
 [tool.pytest.ini_options]
 pythonpath = ["."]              # package = false: without this, `import app` fails at collection
