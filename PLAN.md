@@ -1167,6 +1167,12 @@ Recorded while building; each item is the smallest fix to the plan above.
     `.env` (never the API key), shown in a popover in the top bar.
   - **Library filter:** client-side, every word must appear in the title or link. No server search: pages are
     images without text, and the semantic Search on the home page already covers finding pages by content.
+- **Cited sources only, 2026-11-01 (user request).** Ask reads 8 pages, but an answer often cites one or two, and
+  a Sources row of all 8 hid which pages back it. The answer card now shows only the pages the answer cites, in S
+  order and with their original S-numbers (the model's text is shown unchanged). The citations are parsed in the UI
+  with the same regex that makes the chips, so chips and thumbnails always agree; a label that does not exist,
+  such as [S9] with 8 pages, is ignored. With no valid citation (e.g. "Not found in the retrieved pages.") the card
+  shows every page read, under "Pages read". The other retrieved pages stay in "All matching pages" below.
 - **Renamed to GriRAG, 2026-11-01 (user decision)**, with a new mark: a page outline that reads as a G, its dog-ear
   in the sage accent (`web/src/components/logo.tsx`, `web/public/favicon.svg`, `assets/icon.svg`). Only
   user-facing names changed (UI, tab titles, README title, the Python package name in `pyproject.toml`). The repo
