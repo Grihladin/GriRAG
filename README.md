@@ -15,7 +15,7 @@ collection keep their old names: renaming them would recreate the containers awa
 
 Needs uv, Node.js, Docker Desktop (with the default 4 GB VM) and an OpenRouter account with a few dollars of credit.
 
-1. `make setup` creates `.venv`, installs the web UI's packages (`web/node_modules`), and creates `.env` from
+1. `make setup` creates `.venv`, installs the web UI's packages (`app/frontend/node_modules`), and creates `.env` from
    `.env.example` and `data/`.
 2. Put your key from https://openrouter.ai/settings/keys into `.env` as `OPENROUTER_API_KEY`.
 3. `make smoke` checks the embedder and the answer model live (5 requests, about $0.01).
@@ -24,7 +24,7 @@ Needs uv, Node.js, Docker Desktop (with the default 4 GB VM) and an OpenRouter a
 
 ## Daily use
 
-- `make run` starts Docker Desktop if needed, then Gotenberg and Qdrant, rebuilds the web UI (`web/dist`) if its
+- `make run` starts Docker Desktop if needed, then Gotenberg and Qdrant, rebuilds the web UI (`app/frontend/dist`) if its
   sources changed, then serves the app on http://127.0.0.1:8000.
 - **Add** (top bar, or drop files anywhere): PDF/DOCX files and/or http(s) links, one per line. Links to a PDF
   or DOCX file are downloaded; other links are screenshotted at 1120 px wide and cut into 1120 × 1120 pages.
@@ -49,19 +49,20 @@ Needs uv, Node.js, Docker Desktop (with the default 4 GB VM) and an OpenRouter a
 - `make reembed` (app stopped) re-embeds everything from the stored page images, after changing `EMBED_MODEL`
   or another embedding setting, or if the Qdrant data was lost. It prints the request count and asks first.
 - `make test` runs the unit tests (no network, no Docker).
-- `make lint` runs Ruff on the Python code and Oxlint (with `@shadcn/lint`) on `web/`.
+- `make lint` runs Ruff on the Python code and Oxlint (with `@shadcn/lint`) on `app/frontend/`.
 
 ## Web UI development
 
-The UI in `web/` is React + Vite + TanStack Router/Query + shadcn/ui. It talks to the JSON API under `/api`
-in `app/main.py`; FastAPI serves the built `web/dist` at `/`.
+The UI in `app/frontend/` is React + Vite + TanStack Router/Query + shadcn/ui. It talks to the JSON API under
+`/api` in `app/backend/api.py`; FastAPI serves the built `app/frontend/dist` at `/`. The RAG pipeline (convert,
+render, embed, vectors, search, answer) is in `app/backend/rag/`.
 
-- Run `make run` in one terminal and `cd web && npm run dev` in another, then open http://localhost:5173.
+- Run `make run` in one terminal and `cd app/frontend && npm run dev` in another, then open http://localhost:5173.
   Vite reloads on save and proxies `/api` and `/files` to the app on port 8000.
-- `cd web && npm run build` type-checks and builds; `npx shadcn@latest add <component>` adds a component.
-- `cd web && npm run lint` runs Oxlint with the [`@shadcn/lint`](https://github.com/shadcn-ui/lint) plugin
-  registered in `web/.oxlintrc.json`. `shadcn/no-raw-colors` is on: components use the theme tokens in
-  `web/src/index.css`, not Tailwind palette colours.
+- `cd app/frontend && npm run build` type-checks and builds; `npx shadcn@latest add <component>` adds a component.
+- `cd app/frontend && npm run lint` runs Oxlint with the [`@shadcn/lint`](https://github.com/shadcn-ui/lint) plugin
+  registered in `app/frontend/.oxlintrc.json`. `shadcn/no-raw-colors` is on: components use the theme tokens in
+  `app/frontend/src/index.css`, not Tailwind palette colours.
 
 ## Models and cost
 
