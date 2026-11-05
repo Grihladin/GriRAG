@@ -71,9 +71,7 @@ inside the Gotenberg container. That makes it the riskiest part of GriRAG, so it
 - The browser refuses private addresses, so a page cannot load your network, your computer, Qdrant or the app.
 
 It is not a full sandbox. Chromium runs with `--no-sandbox`, so the container is the only wall, and the address rule
-binds the browser, not the container. A site that exploits a browser bug would get a shell there with internet
-access, and could reach Qdrant and the app directly. Neither has a login, so it could read or delete your library.
-Add links you trust, and keep Gotenberg up to date.
+binds the browser, not the container.
 
 ## License
 
