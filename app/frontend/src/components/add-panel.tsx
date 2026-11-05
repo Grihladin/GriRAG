@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { FileTextIcon, UploadIcon, XIcon } from 'lucide-react'
 import { api, type AddResult } from '@/api'
@@ -15,6 +15,8 @@ export function AddPanel({ initialFiles = [], onClose }: Props) {
   const queryClient = useQueryClient()
   const [files, setFiles] = useState(initialFiles)
   const [urls, setUrls] = useState('')
+  const config = useQuery({ queryKey: ['config'], queryFn: api.config, staleTime: Infinity })
+  const webPages = config.data?.limits.max_web_pages
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['library'] })
   const add = useMutation({
     mutationFn: api.add,
@@ -118,7 +120,7 @@ export function AddPanel({ initialFiles = [], onClose }: Props) {
         </ul>
       )}
       <div className="space-y-1.5">
-        <label htmlFor="add-urls" className="text-sm font-medium">
+        <label htmlFor="add-urls" className="block text-sm font-medium">
           Links
         </label>
         <Textarea
@@ -129,7 +131,8 @@ export function AddPanel({ initialFiles = [], onClose }: Props) {
           onChange={(e) => setUrls(e.target.value)}
         />
         <p className="text-xs text-muted-foreground">
-          Web pages are captured as images, up to 40 pages each. Links to PDF or Word files are downloaded.
+          Web pages are saved just as they look in a browser, including images and content that loads as you scroll.
+          {webPages && ` Up to ${webPages} pages each.`}
         </p>
       </div>
       {add.error && <Warning error>Could not add: {add.error.message}</Warning>}

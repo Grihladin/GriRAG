@@ -14,23 +14,31 @@ log = logging.getLogger(__name__)
 
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
-# Makes lazy images eager and scrolls one viewport at a time (at most 40 steps, the MAX_WEB_PAGES cap), then
-# returns to the top and waits up to 5 s for fonts and images. Never throws, always returns true.
+# Makes lazy images eager and scrolls one window at a time, at most MAX_STEPS steps, then returns to the top and waits
+# up to 5 s for fonts and images. 'instant' overrides CSS smooth scrolling, which leaves the page behind the script and
+# lazy charts undrawn. Never throws, always returns true. See scroll_js().
 SCROLL_JS = ("(async () => { try { document.querySelectorAll('img[loading=\"lazy\"]').forEach((i) => { i.loading = "
              "'eager'; }); const step = window.innerHeight || 800; for (let y = 0, n = 0; y < document.documentElement"
-             ".scrollHeight && n < 40; y += step, n++) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, "
-             "150)); } window.scrollTo(0, 0); const pending = Array.from(document.images).filter((i) => !i.complete)"
+             ".scrollHeight && n < MAX_STEPS; y += step, n++) { window.scrollTo({ top: y, behavior: 'instant' }); await "
+             "new Promise((r) => setTimeout(r, 150)); } window.scrollTo({ top: 0, behavior: 'instant' }); "
+             "const pending = Array.from(document.images).filter((i) => !i.complete)"
              ".map((i) => new Promise((r) => { i.addEventListener('load', r, { once: true }); i.addEventListener("
              "'error', r, { once: true }); })); await Promise.race([Promise.all([document.fonts.ready, ...pending]), "
              "new Promise((r) => setTimeout(r, 5000))]); } catch (e) {} return true; })()")
 
 
+def scroll_js(cfg: Config) -> str:
+    """SCROLL_JS scrolling as far as the pages kept. Gotenberg applies width and height only after this script, which
+    runs in Chromium's default 780x437 window on a taller layout: one slice takes about 3 steps, so 4 leave a margin."""
+    return SCROLL_JS.replace("MAX_STEPS", str(cfg.max_web_pages * 4))
+
+
 def web_shot(cfg: Config, url: str) -> dict:
-    """Form fields for POST /forms/chromium/screenshot/url (Gotenberg 8.39.0). skipNetworkAlmostIdleEvent=false is
-    not sent: with it even example.com ran into the 300 s time limit; SCROLL_JS does the waiting."""
+    """Form fields for POST /forms/chromium/screenshot/url (Gotenberg 8.40.0). skipNetworkAlmostIdleEvent=false is
+    not sent: with it even example.com ran into the 300 s time limit; scroll_js() does the waiting."""
     return {"url": url, "width": str(cfg.web_viewport_width), "height": str(cfg.web_slice_height),
             "clip": "false", "format": "jpeg", "quality": str(cfg.jpeg_quality), "emulatedMediaType": "screen",
-            "waitForExpression": SCROLL_JS}
+            "waitForExpression": scroll_js(cfg)}
 
 
 # ---------------------------------------------------------------- links that are files

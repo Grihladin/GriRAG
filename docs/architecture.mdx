@@ -15,7 +15,7 @@ pictures.
 | Part | Where it runs | Job |
 | --- | --- | --- |
 | **App** (FastAPI, Python 3.14) | Docker container `GriRAG`, port 8000 | Serves the UI and the JSON API, and runs the worker thread that processes documents |
-| **Gotenberg** 8.39.0 | Docker, port 3100 | Turns Word files into PDF (LibreOffice) and web pages into screenshots (Chromium) |
+| **Gotenberg** 8.40.0 | Docker, port 3100 | Turns Word files into PDF (LibreOffice) and web pages into screenshots (Chromium) |
 | **Qdrant** 1.20.0 | Docker, port 6333 | Stores one vector per page and finds the pages closest to a question |
 | **SQLite** | inside the app, file `data/app.db` | The document catalog and the job queue, in one table |
 | **OpenRouter** | remote API | Embeds pages and questions, and runs the answer model |
@@ -80,7 +80,7 @@ embedding model never needs a re-render.
 | `dedup_key` | `sha256:<hash of the file>` or `url:<normalized link>`; unique, so the same thing cannot be added twice |
 | `status` | `queued`, `working`, `done` or `error` |
 | `message` | why it failed or why it is waiting |
-| `warning` | a non-fatal note, e.g. very tall pages or a web page cut after 40 pages |
+| `warning` | a non-fatal note, e.g. very tall pages or a web page cut after 50 pages |
 | `next_attempt_at` | for a waiting document, when it may run again (unix seconds) |
 | `page_count` | set once the pages are rendered; `NULL` before |
 | `pages_embedded` | how many pages are in Qdrant; also where embedding resumes |

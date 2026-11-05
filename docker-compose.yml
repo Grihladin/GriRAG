@@ -1,7 +1,7 @@
 name: grirag
 services:
   gotenberg:
-    image: gotenberg/gotenberg:8.39.0          # native arm64
+    image: gotenberg/gotenberg:8.40.0          # native arm64
     ports:
       - "127.0.0.1:3100:3000"
     environment:
