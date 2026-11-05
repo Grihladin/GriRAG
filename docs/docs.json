@@ -23,7 +23,7 @@
       },
       {
         "group": "Reference",
-        "pages": ["configuration", "operations", "api"]
+        "pages": ["configuration", "operations", "api", "development"]
       },
       {
         "group": "Background",

@@ -1,0 +1,79 @@
+---
+title: "Development"
+description: "Working on the code: layout, commands, tests, the UI dev server, worktrees and the docs."
+---
+
+## Layout
+
+- `app/backend/`: Python 3.14 and FastAPI. The RAG pipeline is in `app/backend/rag/`. See the
+  [code map](/architecture#code-map).
+- `app/frontend/`: React, Vite, Tailwind v4 and shadcn/ui.
+- `tests/`: unit tests with fakes for OpenRouter, Gotenberg and Qdrant.
+- `docs/`: this site (Mintlify), with the diagram sources in `docs/diagrams/`.
+
+The app runs in Docker. Tests, lint and the UI dev server run on the host and need
+[uv](https://docs.astral.sh/uv/) and Node.js.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `make up` | builds and starts everything; run it again after a code change |
+| `make down` | stops everything |
+| `make test` | unit tests: no network, no Docker |
+| `make lint` | Ruff for Python and `tests/`, Oxlint with `@shadcn/lint` for the UI |
+| `cd app/frontend && npm run build` | type-checks and builds the UI |
+| `make smoke` | checks both models live, about $0.01 ([details](/operations#checking-the-models)) |
+| `make reembed` | re-embeds every page ([details](/operations#re-embedding)) |
+
+Tests never touch the network: model calls cost money.
+
+## Live UI reloads
+
+```bash
+make up
+cd app/frontend && npm run dev
+```
+
+Then open http://localhost:5173. Vite reloads the UI on every save and forwards `/api` and `/files` to the app on
+port 8000. Backend changes need `make up` again.
+
+## Working in a git worktree
+
+All checkouts share one set of containers and one library. The Makefile sets `GRIRAG_HOME` to the main
+checkout (from `git rev-parse --git-common-dir`), and `docker-compose.yml` mounts `$GRIRAG_HOME/data` and reads
+`$GRIRAG_HOME/.env`. So `make up` in a worktree builds **that worktree's code** and runs it on **the real
+library**.
+
+Bare `docker compose up` in a worktree doesn't have `GRIRAG_HOME`, falls back to `./data` (empty in a worktree),
+and the app exits with "collection 'pages' is missing". Run `make up` to fix it.
+
+Don't run the app on the host (`uvicorn …`) while the container is up. The lock on `data/worker.lock` does not
+work across the Docker bind mount, so both would think they hold it.
+
+## Docs
+
+```bash
+cd docs
+npx mint dev                                  # preview on http://localhost:3000
+npx mint validate && npx mint broken-links    # check before pushing
+```
+
+- Pages are `.mdx`. A new page must be added to `navigation` in `docs.json`.
+- Links between pages are root-relative without extension, like `/configuration#limits`.
+- Images live in `docs/images/` and are referenced as `/images/x.png`.
+- MDX reads `{`, `}` and `<` in prose as code, so keep them inside backticks.
+- Every push to `main` publishes the site.
+
+### Diagrams
+
+The sources are `docs/diagrams/*.excalidraw`; open them on excalidraw.com to edit. Each has a light and a dark
+PNG in `docs/images/`, rendered with the [Excalidraw CLI](https://www.npmjs.com/package/@excalidraw/cli) (it needs
+Chrome, Chromium, Edge or Firefox):
+
+```bash
+excalidraw render docs/diagrams/pipeline.excalidraw --out docs/images/pipeline.png --scale 2 --transparent
+excalidraw render docs/diagrams/pipeline.excalidraw --out docs/images/pipeline-dark.png --scale 2 --transparent --theme dark
+```
+
+Excalidraw doesn't resize boxes to their text, so make each box wide enough for its label.
