@@ -1,4 +1,4 @@
-"""One document through the pipeline: convert -> render -> embed -> upsert. Every step resumes. PLAN.md §5.2-5.5."""
+"""One document through the pipeline: convert -> render -> embed -> upsert. Every step resumes."""
 import logging
 
 from app.backend import store

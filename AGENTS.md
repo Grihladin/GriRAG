@@ -1,7 +1,7 @@
 # AGENTS.md
 
-Instructions for coding agents working in this repository. Read `README.md` for setup and daily use and
-`PLAN.md` for the design and the decisions behind it.
+Instructions for coding agents working in this repository. Read `README.md` for setup, daily use and the
+architecture.
 
 GriRAG is a single-user visual RAG. You add PDFs, Word files and web links; every page becomes an image;
 the images are embedded through OpenRouter and stored in Qdrant; a vision model answers from the best
@@ -13,7 +13,8 @@ shadcn/ui in `app/frontend/`.
 - `make test`: unit tests (no network, no Docker). Run them before every commit.
 - `make lint`: Ruff for the Python code and `tests/`, Oxlint with `@shadcn/lint` for `app/frontend/`.
 - `cd app/frontend && npm run build`: type-check and build the UI.
-- `make run`: the app on http://127.0.0.1:8000 (starts Docker, Gotenberg and Qdrant).
+- `make up`: builds and starts the app, Gotenberg and Qdrant in Docker on http://127.0.0.1:8000. Run it again
+  after a code change. `make down` stops everything.
 
 ## Commits and pull requests
 
@@ -23,11 +24,12 @@ shadcn/ui in `app/frontend/`.
 
 ## Things that break easily
 
-- Do not run `make up` or `make run` from a git worktree: Docker Compose would remount the shared Qdrant
-  container on the worktree's empty `data/qdrant`. In a worktree, start the app with
-  `DATA_DIR=<main checkout>/data uv run --env-file .env uvicorn app.backend.main:app --port 8000`.
-- The folder, the Compose project (`pixelrag`) and the Qdrant collection keep the old name on purpose.
-  Renaming them starts new containers away from the stored vectors.
+- Start the stack with `make`, not bare `docker compose`: the Makefile sets `GRIRAG_HOME` to the main checkout,
+  and Compose takes `data/` and `.env` from there. `make up` in a worktree therefore runs the worktree's code on
+  the one library; bare `docker compose up` in a worktree would mount its empty `data/` instead.
+- Don't run the app on the host while the container is up: the `flock` on `data/worker.lock` does not reach
+  across the Docker bind mount, so both would take it.
+- Keep the Qdrant collection name (`pages`): renaming it leaves the stored vectors behind.
 - Model calls cost money. Tests never touch the network, and interactive requests are never retried
   automatically.
 

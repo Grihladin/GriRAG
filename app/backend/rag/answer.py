@@ -1,4 +1,4 @@
-"""Ask: send the best pages to the vision model and get an answer with [S1]-style citations. PLAN.md §6.2."""
+"""Ask: send the best pages to the vision model and get an answer with [S1]-style citations."""
 import re
 from dataclasses import dataclass
 

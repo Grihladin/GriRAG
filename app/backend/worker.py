@@ -1,5 +1,5 @@
 """The worker thread (claim a document, run the pipeline, record the outcome), startup recovery, the worker lock,
-and reembed. PLAN.md §5.6, §5.8, §8.3-8.4."""
+and reembed."""
 import fcntl
 import logging
 import shutil
@@ -131,5 +131,5 @@ def reembed(cfg: Config, qc: QdrantClient | None = None, confirm: Callable[[str]
             print(e)
             return 1
         n = store.requeue_for_reembed(conn)
-        print(f"{n} documents queued; start the app (make run) to re-embed them")
+        print(f"{n} documents queued; start the app (make up) to re-embed them")
         return 0

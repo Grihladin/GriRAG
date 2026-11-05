@@ -1,4 +1,4 @@
-"""The SQLite catalog (one `documents` table: catalog + job state) and the document folders. PLAN.md §4.1, §4.3."""
+"""The SQLite catalog (one `documents` table: catalog + job state) and the document folders."""
 import math
 import sqlite3
 import time

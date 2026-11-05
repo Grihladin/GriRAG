@@ -1,4 +1,4 @@
-name: pixelrag
+name: grirag
 services:
   gotenberg:
     image: gotenberg/gotenberg:8.39.0          # native arm64
@@ -27,5 +27,30 @@ services:
       QDRANT__TELEMETRY_DISABLED: "true"
       QDRANT__SERVICE__ENABLE_CORS: "false"    # CORS is on by default: any website could read localhost:6333
     volumes:
-      - ./data/qdrant:/qdrant/storage
+      - ${GRIRAG_HOME:-.}/data/qdrant:/qdrant/storage   # GRIRAG_HOME: the main checkout, set by the Makefile
+    healthcheck:                               # the image has no curl; bash's /dev/tcp asks /readyz
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/6333 && printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      interval: 2s
+      retries: 30
     mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
+  grirag:                                      # the API and the built UI
+    build: .
+    container_name: GriRAG                     # the name Docker Desktop shows (image names must be lowercase)
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file: ${GRIRAG_HOME:-.}/.env             # the OpenRouter key and model settings reach only this container
+    environment:
+      GOTENBERG_URL: "http://gotenberg:3000"
+      QDRANT_URL: "http://qdrant:6333"
+    volumes:
+      - ${GRIRAG_HOME:-.}/data:/data         # SQLite, originals and page images stay on the host
+    depends_on:
+      qdrant:
+        condition: service_healthy             # the app exits at startup if Qdrant is not ready
+      gotenberg:
+        condition: service_started
+    mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true

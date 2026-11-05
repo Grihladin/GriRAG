@@ -1,4 +1,4 @@
-"""Adding, retrying and deleting documents (request thread; the worker does the rest). PLAN.md §5.1, §5.7."""
+"""Adding, retrying and deleting documents (request thread; the worker does the rest)."""
 import hashlib
 import logging
 import os

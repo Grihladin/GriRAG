@@ -13,7 +13,7 @@ from app.backend.errors import DocError, Paused, RateLimited
 log = logging.getLogger(__name__)
 
 PRIVACY_HINT = "no endpoints: enable free endpoints at https://openrouter.ai/settings/privacy, or the model was withdrawn"
-# The free NVIDIA embedder answers about half of all requests with a random 502 (M0/M1, PLAN.md §15).
+# The free NVIDIA embedder answers about half of all requests with a random 502 (seen while building the app).
 # Failed requests do not count against the free quota, so a 502 is retried right away (through the throttle).
 ATTEMPTS_502 = 4
 BATCH_HINT = ("if this is about size (image_too_large is a 400, payload_too_large a 413), "

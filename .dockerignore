@@ -1,0 +1,13 @@
+# Only the app's sources go into the build; the image builds its own UI and Python environment.
+.git
+.env
+data/
+.venv/
+**/__pycache__
+.pytest_cache/
+.ruff_cache/
+app/frontend/node_modules/
+app/frontend/dist/
+assets/
+docs/
+tests/

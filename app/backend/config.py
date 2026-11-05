@@ -1,4 +1,4 @@
-"""Settings from the environment (.env via `uv run --env-file`), with defaults. PLAN.md §9."""
+"""Settings from the environment (.env via `uv run --env-file`), with defaults."""
 import logging
 import os
 from dataclasses import dataclass, fields

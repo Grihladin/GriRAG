@@ -1,4 +1,4 @@
-"""CLI: `smoke` (M0 live checks) and `reembed` (PLAN.md §5.8). Run with `python -m app.backend.cli`."""
+"""CLI: `smoke` (live model checks) and `reembed`. Run with `python -m app.backend.cli`."""
 import argparse
 import dataclasses
 import json
@@ -202,7 +202,7 @@ def main(argv=None) -> int:
     setup_logging()
     ap = argparse.ArgumentParser(prog="python -m app.backend.cli")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sp = sub.add_parser("smoke", help="M0 live checks (about 5 free requests)")
+    sp = sub.add_parser("smoke", help="live model checks (about 5 requests)")
     sp.add_argument("--input-mode", choices=["field", "prefix"])
     sp.add_argument("--query-type")
     sp.add_argument("--passage-type")

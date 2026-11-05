@@ -1,4 +1,4 @@
-"""Search: embed the question, find the best pages grouped by document. PLAN.md §6.1."""
+"""Search: embed the question, find the best pages grouped by document."""
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime

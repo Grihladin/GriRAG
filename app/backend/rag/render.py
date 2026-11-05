@@ -1,4 +1,4 @@
-"""Page images with PyMuPDF: PDF pages, web screenshot slices, and square padding for the embedder. PLAN.md §5.3-5.4."""
+"""Page images with PyMuPDF: PDF pages, web screenshot slices, and square padding for the embedder."""
 from pathlib import Path
 
 import pymupdf
@@ -64,7 +64,7 @@ def slice_screenshot(src: Path, out_dir: Path, *, slice_height: int, quality: in
 
 def square_jpeg(jpeg: bytes, quality: int) -> bytes:
     """The page centred on a white square. The free NVIDIA embedder fails every time on some page shapes
-    (US Letter, 852-880 x 1120) but has never failed on squares (PLAN.md §15); only its input is padded."""
+    (US Letter, 852-880 x 1120) but has never failed on squares; only its input is padded."""
     src = pymupdf.Pixmap(jpeg)
     if src.width == src.height:
         return jpeg

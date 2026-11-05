@@ -22,7 +22,7 @@ each page it used ([S1], [S2], …).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/architecture-dark.png">
-  <img src="assets/architecture.png" alt="The browser talks to the FastAPI app, which uses Gotenberg and Qdrant in Docker, SQLite and page images in data/, and OpenRouter for embeddings and answers.">
+  <img src="assets/architecture.png" alt="The browser talks to the FastAPI app. The app, Gotenberg and Qdrant run in Docker; SQLite and page images stay in data/ on your computer; OpenRouter does embeddings and answers.">
 </picture>
 
 The approach follows [PixelRAG](https://github.com/StarTrail-org/PixelRAG) (Apache-2.0). No PixelRAG code is
@@ -30,18 +30,23 @@ used; the answer prompt is adapted from its `SYSTEM_PROMPT_EVIDENCE_QA`.
 
 ## Quick start
 
-Needs [uv](https://docs.astral.sh/uv/), Node.js, Docker Desktop and an OpenRouter account with a few
+Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) and an OpenRouter account with a few
 dollars of credit.
 
-1. Clone and install:
+1. Clone and create the settings file:
    ```bash
    git clone https://github.com/Grihladin/GriRAG.git && cd GriRAG
-   make setup
+   cp .env.example .env
    ```
 2. Create a key at https://openrouter.ai/settings/keys and put it into `.env` as `OPENROUTER_API_KEY`.
-3. Optional: `make smoke` checks both models live (about $0.01).
-4. `make run` starts Docker, Gotenberg and Qdrant, then serves the app on http://127.0.0.1:8000.
-5. Click **Add**, drop in a PDF or paste a link, and ask a question once its status is ready.
+3. Start it (the first build takes a few minutes):
+   ```bash
+   docker compose up -d --build
+   ```
+4. Open http://127.0.0.1:8000, click **Add**, drop in a PDF or paste a link, and ask a question once its status
+   is ready.
+
+Your library lives in `data/`. `docker compose stop` stops everything; after a `git pull`, run step 3 again.
 
 ## Using it
 
@@ -52,7 +57,7 @@ dollars of credit.
 - **Ask** a question to get an answer with citations. Sources shows the pages it cited, and every matching
   page follows below; click a page to see it large. **Search** finds pages without calling the answer model.
 - **Library** lists every document with its status, with Retry and Delete.
-- **Settings** shows the models and limits. Change them in `.env` and restart.
+- **Settings** shows the models and limits. Change them in `.env`, then run `docker compose up -d`.
 
 ## Models and cost
 
@@ -64,11 +69,18 @@ cost. Models are set in `.env`; `.env.example` lists the options, including free
 
 | Command | What it does |
 | --- | --- |
-| `make run` | Starts Docker, Gotenberg and Qdrant, builds the UI if needed, serves the app |
-| `make down` | Stops the containers |
-| `make reembed` | Re-embeds every page after a model change or lost Qdrant data (app stopped; asks first) |
-| `make test` | Unit tests, no network or Docker |
-| `make lint` | Ruff and Oxlint |
+| `docker compose up -d --build` | Builds and starts the app, Gotenberg and Qdrant |
+| `docker compose stop` | Stops them |
+| `docker compose logs -f grirag` | Shows the app's log, with the cost of every model call |
+
+Re-embedding every page (after changing the embedding model, or after losing the Qdrant data) asks first and
+needs the app stopped:
+
+```bash
+docker compose stop grirag
+docker compose run --rm grirag python -m app.backend.cli reembed
+docker compose up -d
+```
 
 ## Limitations
 
@@ -80,9 +92,20 @@ cost. Models are set in `.env`; `.env.example` lists the options, including free
 ## Development
 
 Backend in `app/backend/` (Python 3.14, FastAPI; the RAG pipeline is in `app/backend/rag/`), UI in
-`app/frontend/` (React, Vite, Tailwind, shadcn/ui). For live UI reloads, run `make run` and
-`cd app/frontend && npm run dev`, then open http://localhost:5173. The design and its decisions are in
-[PLAN.md](PLAN.md); [AGENTS.md](AGENTS.md) has the rules for contributing.
+`app/frontend/` (React, Vite, Tailwind, shadcn/ui). Tests and lint run on your Mac and need
+[uv](https://docs.astral.sh/uv/) and Node.js.
+
+| Command | What it does |
+| --- | --- |
+| `make up` | Builds and starts everything; run it again after a code change |
+| `make down` | Stops everything |
+| `make reembed` | Re-embeds every page (stops the app; asks first) |
+| `make smoke` | Checks both models live (about $0.01) |
+| `make test` | Unit tests, no network or Docker |
+| `make lint` | Ruff and Oxlint |
+
+For live UI reloads, run `make up` and `cd app/frontend && npm run dev`, then open http://localhost:5173.
+[AGENTS.md](AGENTS.md) has the rules for contributing.
 
 ## License
 
