@@ -38,7 +38,7 @@ If the pages do not contain the answer, reply "Not found in the retrieved pages.
 Be concise. Answer in the language of the question.
 ```
 
-Settings sent with it: `ANSWER_MAX_TOKENS` (2048), `ANSWER_TEMPERATURE` (0.4) and `ANSWER_REASONING_EFFORT`
+Settings sent with it: `ANSWER_MAX_TOKENS` (8192), `ANSWER_TEMPERATURE` (0.4) and `ANSWER_REASONING_EFFORT`
 (`max`). Any `<think>…</think>` block in the reply is removed. If the model spends its whole token budget on
 reasoning and returns nothing, the message says to raise `ANSWER_MAX_TOKENS`.
 
@@ -51,6 +51,46 @@ reasoning and returns nothing, the message says to raise `ANSWER_MAX_TOKENS`.
 - If the answer cites nothing (for example "Not found in the retrieved pages."), the card shows every page the
   model read, under **Pages read**.
 - **All matching pages** below the answer are the full search results.
+
+## Research
+
+Ask is one search and one answer. Research gives the question to an agent that decides what to search for, which
+pages to read, and when it knows enough. It is a chat: follow-up questions see the earlier questions, answers and
+pages, so "and when is it due?" works.
+
+The agent is built with [deepagents](https://github.com/langchain-ai/deepagents) on LangGraph
+(`app/backend/rag/agent.py`). Its model (`AGENT_MODEL`) only plans and writes text; it never sees a page. It has
+two tools of its own:
+
+| Tool | What it does |
+| --- | --- |
+| `search_pages(query)` | runs the [search](#search) above and returns the best `2 × ANSWER_PAGES` (16) pages, one line each: `#120003 report.pdf p.3 (0.41)` |
+| `read_pages(question, ids)` | sends up to `ANSWER_PAGES` (8) of those pages to the answer model with the [Ask prompt](#the-prompt), labelled `[#120003] report.pdf, page 3` instead of `[S1]`, and returns its cited reply |
+
+A page's id is its Qdrant point id, `doc_id * 10000 + page`, so it means the same page for the whole conversation.
+The system prompt tells the agent to try reformulated queries when the first search is not clearly right, to
+answer only from what `read_pages` returned, to cite `[#id]` after each statement, and to say when the pages
+don't contain the answer. deepagents also gives it a scratch file system and a `task` tool for sub-agents; they
+live in the conversation's state and touch nothing on disk.
+
+The UI shows each step as it happens: "Searched: invoice total · 16 pages", and "Read 3 pages" with the pages as
+small thumbnails. The answer streams in. `[#120003]` and `[#120003, #20001]` become chips numbered S1, S2, … in
+the order the answer first cites them; clicking one opens the page.
+
+### Conversations
+
+The conversation id is in the URL (`/research?t=…`), and **New conversation** starts another. Every turn is saved
+in `data/agent.db` (a LangGraph SQLite checkpoint), so a conversation survives reloads and restarts, and the
+**Research** link reopens the last one. There is no list of old conversations; keep the URL to come back to one.
+
+### Limits and failures
+
+- `AGENT_MAX_STEPS` (40) caps the LangGraph steps per question. One search-and-read round takes about two steps,
+  so 40 allows about 19 model calls. At the cap the agent stops with a message saying so.
+- A failed model call (no credit, bad key, rate limit) ends the turn with the reason shown under the conversation.
+  Nothing is retried; ask again.
+- Search and read failures ("No documents yet.", "Rate-limited, try again in 12 s") go back to the agent as the
+  tool's answer, so it can tell you.
 
 ## Failures are messages, never retries
 
@@ -68,6 +108,14 @@ message and the UI shows it:
 
 ## Cost
 
-With the default models a question costs one embedding request (skipped when cached) and one answer request with
-8 page images: well under $0.001. Every call is logged with its cost
+With the default models an Ask question costs one embedding request (skipped when cached) and one answer request
+with 8 page images: well under $0.001. Every call is logged with its cost
 (`docker compose logs -f grirag`).
+
+A Research question costs several model calls: each agent step sends about 3,300 tokens of instructions and tool
+descriptions plus the conversation so far, each search an embedding request, and each `read_pages` call one
+answer request with its pages. A test question (one search, one read of two pages, three agent calls) cost about
+$0.0011: $0.0005 for the agent, whose repeated input was served from OpenRouter's cache after the first call, and
+$0.0006 for the read. More searches and reads cost more; `AGENT_MAX_STEPS` puts a ceiling on it. The log shows
+the cost of each read and embedding request; agent model calls go through `langchain-openrouter` and are not in
+it, so check the OpenRouter activity page for those.

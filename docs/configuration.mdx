@@ -57,11 +57,22 @@ page shapes. See [Decisions](/decisions#models).
 | --- | --- | --- |
 | `ANSWER_MODEL` | `meta/muse-spark-1.3-contributor` | the vision model that answers; about $0.0006 per question |
 | `ANSWER_PAGES` | `8` | pages sent with each question |
-| `ANSWER_MAX_TOKENS` | `2048` | output limit, reasoning included |
+| `ANSWER_MAX_TOKENS` | `8192` | Ask's output limit, reasoning included; Research has no limit |
 | `ANSWER_REASONING_EFFORT` | `max` | sent as `reasoning.effort`; empty to leave it out |
 | `ANSWER_TEMPERATURE` | `0.4` | sampling temperature |
 
 A free alternative is `nvidia/nemotron-3.5-super-vl:free` (it uses the 50-a-day free quota).
+
+## Research
+
+The [Research](/search-and-answers#research) agent. Its page reads go to `ANSWER_MODEL` with the answer settings
+above.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `AGENT_MODEL` | `meta/muse-spark-1.3-contributor` | plans, calls the tools and writes the answer; must support tool calling on OpenRouter |
+| `AGENT_TEMPERATURE` | `0.2` | sampling temperature; OpenRouter drops it for models that don't take one |
+| `AGENT_MAX_STEPS` | `40` | LangGraph steps per question, about 19 model calls; caps the cost of one question |
 
 ## Pages
 

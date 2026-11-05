@@ -17,8 +17,8 @@ pictures.
 | **App** (FastAPI, Python 3.14) | Docker container `GriRAG`, port 8000 | Serves the UI and the JSON API, and runs the worker thread that processes documents |
 | **Gotenberg** 8.39.0 | Docker, port 3100 | Turns Word files into PDF (LibreOffice) and web pages into screenshots (Chromium) |
 | **Qdrant** 1.20.0 | Docker, port 6333 | Stores one vector per page and finds the pages closest to a question |
-| **SQLite** | inside the app, file `data/app.db` | The document catalog and the job queue, in one table |
-| **OpenRouter** | remote API | Embeds pages and questions, and runs the answer model |
+| **SQLite** | inside the app, files `data/app.db` and `data/agent.db` | The document catalog and the job queue, in one table; Research conversations |
+| **OpenRouter** | remote API | Embeds pages and questions, and runs the answer and agent models |
 | **UI** (React, Vite, Tailwind, shadcn/ui) | built into the app image, served at `/` | Ask, Search, Library, Add, Settings |
 
 All ports listen on 127.0.0.1 only. There is no login, so GriRAG must not be exposed to a network.
@@ -43,7 +43,8 @@ When the app starts it:
    ([Operations](/operations#re-embedding));
 4. recovers from a crash: documents left `working` go back to `queued`, and folders without a catalog row are
    deleted together with their vectors;
-5. starts the worker thread, serves `data/docs` at `/files`, and serves the built UI.
+5. starts the worker thread, opens `data/agent.db` for Research conversations, serves `data/docs` at `/files`,
+   and serves the built UI.
 
 ## Where data lives
 
@@ -53,6 +54,7 @@ Deleting `data/` empties the library.
 ```
 data/
 ├── app.db              SQLite catalog (plus app.db-wal, app.db-shm)
+├── agent.db            Research conversations: LangGraph checkpoints, one thread per conversation
 ├── worker.lock         held by the running app or reembed
 ├── tmp/                uploads while they stream in
 ├── qdrant/             Qdrant's own storage (the page vectors)
@@ -118,7 +120,8 @@ app/backend/
     ├── openrouter.py  the only code that calls OpenRouter: throttle, quota, error mapping
     ├── vectors.py  Qdrant: collection, upsert, grouped search, delete
     ├── search.py   question → best pages, grouped by document
-    └── answer.py   best pages → answer with [S1] citations
+    ├── answer.py   best pages → answer with [S1] citations; read() is the vision call Research reuses
+    └── agent.py    Research: the deepagents agent, its two tools, and /api/agent
 app/frontend/src/   the React UI; components/ has one file per view or widget
 tests/              unit tests with fakes for OpenRouter, Gotenberg and Qdrant; no network
 ```
