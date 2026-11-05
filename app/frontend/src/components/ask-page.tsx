@@ -104,7 +104,6 @@ function AskForm({ q = '' }: { q?: string }) {
         autoFocus
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Ask a question about your documents"
         aria-label="Question"
         aria-keyshortcuts="/"
         className="h-10 flex-1 border-0 bg-transparent px-3 shadow-none focus-visible:ring-0 sm:h-11 md:text-base dark:bg-transparent"
