@@ -7,7 +7,7 @@ the code when you change behaviour or settings.
 ## Docs site
 
 - `docs/` is a Mintlify site (`docs/docs.json`, pages as `.mdx`), published from `main` at
-  https://grirag.mintlify.site. A new page must be added to `navigation` in `docs.json`.
+  https://gri-rag.mintlify.site. A new page must be added to `navigation` in `docs.json`.
 - Links between pages are root-relative without extension (`/configuration#limits`). Images live in
   `docs/images/` and are referenced as `/images/x.png` in the docs and `docs/images/x.png` in the README.
 - MDX reads `{`, `}` and `<` in prose as code: keep them inside backticks.

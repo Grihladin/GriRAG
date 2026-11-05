@@ -6,7 +6,7 @@ Ask questions about your PDFs, Word files and web pages. GriRAG reads every page
 charts and layout survive, and answers with citations to the exact pages it used. It runs on your computer,
 for one user.
 
-**[Read the documentation →](https://grirag.mintlify.site)**
+**[Read the documentation →](https://gri-rag.mintlify.site)**
 
 <img src="docs/images/screenshot.png" alt="GriRAG answering when the United States was established, citing one Wikipedia page, with that page under Sources and all matching pages below.">
 
@@ -107,7 +107,7 @@ Backend in `app/backend/` (Python 3.14, FastAPI; the RAG pipeline is in `app/bac
 | `make lint` | Ruff and Oxlint |
 
 For live UI reloads, run `make up` and `cd app/frontend && npm run dev`, then open http://localhost:5173.
-The [documentation](https://grirag.mintlify.site) explains how it works inside, every setting and how to fix
+The [documentation](https://gri-rag.mintlify.site) explains how it works inside, every setting and how to fix
 problems (sources in `docs/`, preview with `cd docs && npx mint dev`);
 [AGENTS.md](AGENTS.md) has the rules for contributing.
 
