@@ -1,0 +1,133 @@
+---
+title: "Operations"
+description: "Running, updating, backing up, re-embedding, and fixing problems."
+---
+
+## Starting and stopping
+
+| Command | What it does |
+| --- | --- |
+| `make up` | builds the app image and starts the app, Gotenberg and Qdrant; opens Docker Desktop if needed |
+| `make down` | stops all three containers (frees the Docker VM's memory) |
+| `docker compose logs -f grirag` | follows the app's log, including the cost of every model call |
+
+`make up` checks that `.env` exists first. Run it again after a `git pull`, a code change, or a change to `.env`.
+
+Bare `docker compose up -d --build` (as in the README's quick start) works the same in the main checkout. In a
+git worktree, use `make` (below).
+
+## Working in a git worktree
+
+All checkouts share one set of containers and one library. The Makefile sets `GRIRAG_HOME` to the main
+checkout (from `git rev-parse --git-common-dir`), and `docker-compose.yml` mounts `$GRIRAG_HOME/data` and reads
+`$GRIRAG_HOME/.env`. So `make up` in a worktree builds **that worktree's code** and runs it on **the real
+library**.
+
+Bare `docker compose up` in a worktree doesn't have `GRIRAG_HOME`, falls back to `./data` (empty in a worktree),
+and the app exits with "collection 'pages' is missing". Run `make up` to fix it.
+
+Don't run the app on the host (`uvicorn …`) while the container is up. The lock on `data/worker.lock` does not
+work across the Docker bind mount, so both would think they hold it.
+
+## Updating
+
+```bash
+git pull
+make up
+```
+
+The library in `data/` is untouched by rebuilds. If an update changes the embedding settings, the app exits at
+startup and asks for a re-embed.
+
+## Re-embedding
+
+Needed after changing `EMBED_MODEL`, `EMBED_INPUT_MODE`, `EMBED_PASSAGE_TYPE` or `EMBED_SQUARE_PAGES`, or
+after losing the Qdrant data.
+
+```bash
+make reembed
+make up
+```
+
+`make reembed` stops the app, prints how many pages and requests it will take, and asks for confirmation. Then it
+deletes the Qdrant collection and puts every rendered document back in the queue with zero pages embedded. The
+next start embeds everything again from the kept page JPEGs; nothing is re-converted or re-rendered.
+
+Cost with Voyage: about $1 per 1,000 pages. The old vectors are gone afterwards, so switching back costs another
+re-embed.
+
+## Backing up
+
+Everything is in `data/`. Stop the stack so SQLite and Qdrant are not mid-write, then copy the folder:
+
+```bash
+make down
+cp -R data ~/backups/grirag-$(date +%F)
+make up
+```
+
+To restore, stop the stack and put the copy back as `data/`.
+
+If only `data/qdrant` is lost, the page images are enough: `make reembed` rebuilds the vectors. If
+`data/app.db` or `data/docs` is lost, the documents have to be added again.
+
+## Checking the models
+
+`make smoke` runs a few live requests (about $0.01) against the configured models: it embeds generated test pages
+and two questions, checks that retrieval ranks the right page first, and asks the answer model to read an invoice
+with a 7 pt footnote. Use it after switching to a new model, before re-embedding.
+
+## Troubleshooting
+
+### The app doesn't start
+
+| Log message | Cause | Fix |
+| --- | --- | --- |
+| `OPENROUTER_API_KEY is empty or still the placeholder` | no key in `.env` | add your key, `make up` |
+| `another app or reembed is running` | something else holds `data/worker.lock` | stop the other app or reembed |
+| `EMBED_MODEL changed from X to Y: run 'make reembed'` (or `Passage mode changed`) | the embedding settings differ from the stored vectors | put the old value back, or `make reembed` |
+| `Qdrant collection 'pages' is missing but N pages were embedded` | the vectors are gone, or the wrong `data/` is mounted | in a worktree, use `make up`; otherwise `make reembed` |
+| `Qdrant is not running` | the Qdrant container is down | `make up` |
+
+### A banner says the worker is paused
+
+The worker pauses when a service or setting is broken, and retries by itself (1 minute, doubling up to 30).
+Documents stay queued meanwhile. Fix the cause and add or retry a document to wake it early.
+
+| Banner | Fix |
+| --- | --- |
+| `Gotenberg is not running` / `Gotenberg is busy` | `make up`; busy clears by itself |
+| `Qdrant is not running` | `make up` |
+| `OpenRouter 401` | check `OPENROUTER_API_KEY` |
+| `OpenRouter 402: out of credits` | add credit on OpenRouter |
+| `OpenRouter 404: no endpoints` | for free models, enable free endpoints at https://openrouter.ai/settings/privacy; otherwise the model was withdrawn |
+| `OpenRouter unreachable` | network problem; it retries |
+
+"Worker stopped; see the log and restart" means the worker thread died: check the log and `make up`.
+
+### A document failed
+
+| Message | Meaning |
+| --- | --- |
+| `not a readable PDF` / `password-protected PDF` | the file can't be opened |
+| `N pages (limit 500)` | raise `MAX_PAGES` (≤ 9999), restart, Retry |
+| `larger than 200 MB` / `download larger than 200 MB` | raise `MAX_UPLOAD_MB` |
+| `URL blocked or host not resolvable` | DNS failure, a private or LAN address, or a blocked consent vendor |
+| `the page answered with an error status` | the site returned 4xx/5xx to Chromium |
+| `Gotenberg 503` | the conversion took over 5 minutes, or Chromium crashed; Retry |
+| a message ending in `lower EMBED_BATCH_PAGES` | an embedding request was too large |
+| `OpenRouter 403 (moderation)` | the provider refused a page |
+
+Click **Retry** after fixing the cause. For a web page that renders badly (cookie wall, login page), there is no
+per-site setting yet: delete it, or add the PDF version instead.
+
+### Waiting documents
+
+"waiting … resumes HH:MM" is normal after a rate limit or when the free-quota reserve is reached. **Retry** skips
+the wait.
+
+## Resources
+
+Docker memory limits: Gotenberg 2 GB, Qdrant 1 GB, app 1 GB. Gotenberg shuts its browsers down after 5 idle
+minutes, runs one Chromium at a time, and the app renders one page at a time. Slicing a 40-page web screenshot
+briefly needs about 150 MB. `make down` frees everything when you're not using GriRAG.

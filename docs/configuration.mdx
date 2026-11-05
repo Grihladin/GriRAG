@@ -1,0 +1,94 @@
+---
+title: "Configuration"
+description: "Every setting in .env, and which changes need a re-embed."
+---
+
+All settings come from environment variables. In Docker they come from `.env` in the main checkout; copy
+`.env.example` to start. Every setting has a default in `app/backend/config.py`, so `.env` only needs the
+key and the values you change.
+
+To apply a change, run `make up` (or `docker compose up -d`). The **Settings** popover in the UI shows the values
+the app is using; it never shows the key.
+
+## Changes that need a re-embed
+
+Vectors from different models or modes cannot be compared. The Qdrant collection records how its vectors were
+made, and the app **refuses to start** when these settings no longer match:
+
+- `EMBED_MODEL`
+- `EMBED_INPUT_MODE`
+- `EMBED_PASSAGE_TYPE`
+- `EMBED_SQUARE_PAGES`
+
+Either put the old value back, or run `make reembed` ([Operations](/operations#re-embedding)).
+
+Some settings only affect documents added afterwards, because the page images are kept:
+
+- `PAGE_LONGEST_EDGE_PX`, `JPEG_QUALITY`: new documents only.
+- `WEB_VIEWPORT_WIDTH`, `WEB_SLICE_HEIGHT`: new web pages only. Delete and add old ones again to apply them.
+
+## OpenRouter
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `OPENROUTER_API_KEY` | (required) | your key from https://openrouter.ai/settings/keys; the app exits without it |
+| `OPENROUTER_URL` | `https://openrouter.ai/api/v1` | API base URL |
+| `OR_MIN_INTERVAL_S` | `3.2` | minimum seconds between two requests (about 18 a minute) |
+| `OR_RESERVE_REQUESTS` | `10` | free requests per day kept back for questions; only used with a `:free` model |
+
+## Embedding
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `EMBED_MODEL` | `voyageai/voyage-multimodal-3.5` | the embedding model; about $1 per 1,000 pages |
+| `EMBED_INPUT_MODE` | `field` | `field` sends `input_type` with each request; `prefix` adds `query:` / `passage:` text instead |
+| `EMBED_QUERY_TYPE` | `query` | `input_type` for questions |
+| `EMBED_PASSAGE_TYPE` | `document` | `input_type` for pages |
+| `EMBED_BATCH_PAGES` | `8` | pages per embedding request |
+| `EMBED_SQUARE_PAGES` | `false` | pad each page to a white square before embedding (the stored image is unchanged) |
+
+The free `nvidia/nemotron-3.5-embed-8b:free` works only with `EMBED_BATCH_PAGES=1`,
+`EMBED_SQUARE_PAGES=true` and `EMBED_PASSAGE_TYPE=passage`: it rejects requests with two or more images and some
+page shapes. See [Decisions](/decisions#models).
+
+## Answers
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `ANSWER_MODEL` | `meta/muse-spark-1.3-contributor` | the vision model that answers; about $0.0006 per question |
+| `ANSWER_PAGES` | `8` | pages sent with each question |
+| `ANSWER_MAX_TOKENS` | `2048` | output limit, reasoning included |
+| `ANSWER_REASONING_EFFORT` | `max` | sent as `reasoning.effort`; empty to leave it out |
+| `ANSWER_TEMPERATURE` | `0.4` | sampling temperature |
+
+A free alternative is `nvidia/nemotron-3.5-super-vl:free` (it uses the 50-a-day free quota).
+
+## Pages
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PAGE_LONGEST_EDGE_PX` | `1536` | longest edge of a rendered PDF page |
+| `JPEG_QUALITY` | `85` | quality of every page JPEG and web screenshot |
+| `WEB_VIEWPORT_WIDTH` | `1120` | browser window width for web screenshots |
+| `WEB_SLICE_HEIGHT` | `1120` | height of one web page slice |
+
+## Limits
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MAX_PAGES` | `500` | most pages a PDF may have; at most 9999 (point ids depend on it) |
+| `MAX_WEB_PAGES` | `40` | web page slices kept; the rest of a long page is dropped |
+| `MAX_UPLOAD_MB` | `200` | largest upload or downloaded file |
+| `SEARCH_GROUPS` | `10` | documents in a search result |
+| `OFFICE_EXTENSIONS` | `.docx` | comma-separated Word-type extensions sent to LibreOffice; others like `.odt` or `.pptx` should work but are untested |
+
+## Services and storage
+
+These are set for you inside Docker; change them only when running the app outside Docker.
+
+| Variable | Default | In Docker |
+| --- | --- | --- |
+| `GOTENBERG_URL` | `http://127.0.0.1:3100` | `http://gotenberg:3000` |
+| `QDRANT_URL` | `http://127.0.0.1:6333` | `http://qdrant:6333` |
+| `QDRANT_COLLECTION` | `pages` | keep it: renaming leaves the stored vectors behind |
+| `DATA_DIR` | `data` | `/data` (the bind-mounted `data/`) |

@@ -1,0 +1,103 @@
+---
+title: "API"
+description: "The JSON API the UI talks to."
+---
+
+The UI talks to the app through a small JSON API under `/api` (`app/backend/api.py`). Errors the user should
+see come back as **200 responses with a `message`**, not as HTTP errors, so the UI can show them as they are.
+
+There is no authentication. Keep the app on 127.0.0.1.
+
+## Library
+
+### `GET /api/library`
+
+Every document, newest first, plus the worker banner and how often to poll.
+
+```json
+{
+  "docs": [
+    {"id": 42, "kind": "url", "source": "https://example.com/report", "title": "https://example.com/report",
+     "status": "queued", "message": "rate-limited (...); resumes 14:05 (12 of 30 pages pending)",
+     "warning": null, "next_attempt_at": 1793023500, "page_count": 30, "pages_embedded": 18,
+     "dedup_key": "url:https://example.com/report", "waiting": true, "file_url": "/files/42/doc.pdf"}
+  ],
+  "banner": null,
+  "poll_ms": 30000
+}
+```
+
+- `waiting`: queued with a future `next_attempt_at`.
+- `file_url`: the whole document (`doc.pdf`, or `source.jpg` for a web page), `null` until it exists.
+- `banner`: why the worker is paused or stopped, or `null`.
+- `poll_ms`: 2000 while something is being processed or can be, 30000 when everything left is waiting, `null`
+  when there is nothing to wait for.
+
+### `POST /api/add`
+
+Multipart form: `files` (any number) and `urls` (one link per line).
+
+```json
+{"added": 2, "duplicates": [{"id": 7, "title": "invoice.pdf", "status": "done"}],
+ "rejected": ["notes.txt: only .pdf and .docx files"]}
+```
+
+### `POST /api/docs/{id}/retry`
+
+`{"message": null}` on success, or the reason it was refused ("only failed or waiting documents can be retried").
+
+### `DELETE /api/docs/{id}`
+
+`{"message": null}` on success (also when the document no longer exists), or
+"busy (being processed), try again in a moment".
+
+## Questions
+
+### `GET /api/search?q=…`
+
+```json
+{"groups": [[{"doc_id": 42, "page_no": 3, "score": 0.41, "title": "report.pdf", "kind": "pdf",
+              "source": "report.pdf", "file_url": "/files/42/doc.pdf",
+              "image_url": "/files/42/pages/0003.jpg"}]],
+ "message": null}
+```
+
+`groups` holds one list of pages per document, best first. On failure `groups` is empty and `message` says why.
+
+### `POST /api/ask`
+
+Body: `{"q": "What is the invoice total?"}`
+
+```json
+{"answer": {"text": "The total is 4,312 EUR [S1].", "model": "meta/muse-spark-1.3-contributor",
+            "sources": [{"doc_id": 7, "page_no": 1, "...": "..."}]},
+ "groups": [[...]],
+ "message": null}
+```
+
+`sources[0]` is `[S1]`. `groups` is the search result the answer was built from. On failure `answer` is `null`
+and `message` says why. Never retried automatically.
+
+## Settings and quota
+
+### `GET /api/config`
+
+The settings that shape answers and search, read-only: answer model and parameters, embedding model and modes,
+page sizes, limits. Never the API key.
+
+### `GET /api/quota`
+
+`{"quota": "Free requests today: 12/50 used (resets 01:00)"}` when a `:free` model is configured, otherwise
+`{"quota": null}`. Separate from `/api/library`, so polling never calls OpenRouter.
+
+## Files
+
+`/files/{id}/…` serves `data/docs` as static files: `pages/0001.jpg`, `doc.pdf`, `source.jpg`.
+
+## UI routes
+
+Everything else serves the built UI. Its own routes: `/` (Ask; `?q=…&mode=search`), `/library`, and
+`/docs/{id}` (`?page=N` opens the page viewer). Reloading any of them returns `index.html`.
+
+During UI development, `npm run dev` in `app/frontend` serves the UI on port 5173 and forwards `/api` and `/files`
+to the app on port 8000.

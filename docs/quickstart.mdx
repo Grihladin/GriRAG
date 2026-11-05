@@ -1,0 +1,52 @@
+---
+title: "Quickstart"
+description: "Run GriRAG on your computer with Docker and an OpenRouter key."
+---
+
+You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) and an OpenRouter account with a few
+dollars of credit.
+
+<Steps>
+  <Step title="Clone and create the settings file">
+    ```bash
+    git clone https://github.com/Grihladin/GriRAG.git && cd GriRAG
+    cp .env.example .env
+    ```
+  </Step>
+  <Step title="Add your OpenRouter key">
+    Create a key at https://openrouter.ai/settings/keys and put it into `.env` as `OPENROUTER_API_KEY`.
+  </Step>
+  <Step title="Start it">
+    The first build takes a few minutes.
+    ```bash
+    docker compose up -d --build
+    ```
+  </Step>
+  <Step title="Add a document and ask">
+    Open http://127.0.0.1:8000, click **Add**, drop in a PDF or paste a link, and ask a question once its status
+    is ready.
+  </Step>
+</Steps>
+
+Your library lives in `data/`. `docker compose stop` stops everything; after a `git pull`, run step 3 again.
+
+<Warning>
+  There is no login. Keep GriRAG on 127.0.0.1 and don't expose it to a network.
+</Warning>
+
+## Using it
+
+<img src="/images/screenshot-home.png" alt="The GriRAG home page: an Ask box with Ask and Search modes, and the first page of each document in the library." />
+
+- **Add** files (or drop them anywhere) and links, one per line. Links to a PDF or DOCX are downloaded; other
+  links are screenshotted.
+- **Ask** a question to get an answer with citations. Sources shows the pages it cited, and every matching page
+  follows below; click a page to see it large. **Search** finds pages without calling the answer model.
+- **Library** lists every document with its status, with Retry and Delete.
+- **Settings** shows the models and limits. Change them in `.env`, then run `docker compose up -d`.
+
+## Cost
+
+Pages are embedded with `voyageai/voyage-multimodal-3.5` (about $1 per 1,000 pages) and questions answered by
+`meta/muse-spark-1.3-contributor` (under $0.001 each), both through OpenRouter. Every call is logged with its
+cost: `docker compose logs -f grirag`. See [Configuration](/configuration) to change models, including free ones.

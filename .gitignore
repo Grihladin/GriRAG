@@ -3,3 +3,6 @@ data/
 .venv/
 __pycache__/
 .pytest_cache/
+
+# T3 Code project file (local: sets the project icon)
+t3.json

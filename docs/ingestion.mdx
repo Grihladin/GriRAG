@@ -1,0 +1,178 @@
+---
+title: "Ingestion"
+description: "What happens between adding a document and it being ready."
+---
+
+Adding a document is quick: the request saves the file or link, puts a row in the catalog, and wakes the worker.
+The slow part — converting, rendering and embedding — happens afterwards in the worker thread.
+
+<img className="block dark:hidden" src="/images/pipeline.png" alt="Add a document: PDF, DOCX or link, then PDF or screenshot (Gotenberg), page images (PyMuPDF), page vectors (Voyage via OpenRouter), Qdrant." />
+<img className="hidden dark:block" src="/images/pipeline-dark.png" alt="Add a document: PDF, DOCX or link, then PDF or screenshot (Gotenberg), page images (PyMuPDF), page vectors (Voyage via OpenRouter), Qdrant." />
+
+## 1. Adding
+
+| Input | Accepted when | Duplicate check |
+| --- | --- | --- |
+| PDF upload | extension `.pdf`, at most `MAX_UPLOAD_MB` (200 MB) | SHA-256 of the file's bytes |
+| Word upload | extension in `OFFICE_EXTENSIONS` (`.docx`), same size limit | SHA-256 of the file's bytes |
+| Link | `http` or `https` with a host | the normalized link: lower-case scheme and host, no `#fragment` |
+
+- Uploads stream into `data/tmp` while being hashed, then move to `data/docs/{id}/` (`doc.pdf` or
+  `original.docx`).
+- Adding something that is already in the library does not add it again; the reply names the existing document
+  and its status.
+- To refresh a document (a web page that changed, say), delete it and add it again.
+
+## 2. Converting
+
+Every document has to end up as either a PDF (`doc.pdf`) or one tall screenshot (`source.jpg`).
+
+| Input | What happens |
+| --- | --- |
+| PDF | nothing; it is already `doc.pdf` |
+| Word file | Gotenberg's LibreOffice route converts it to `doc.pdf` |
+| Link to a PDF | the app downloads it as `doc.pdf` |
+| Link to a Word file | the app downloads it as `original.docx`, then it is converted like an upload |
+| Any other link | Gotenberg's Chromium takes a full-page screenshot, saved as `source.jpg` |
+
+**Is the link a file?** The app sends one `GET` and decides from the response headers: `application/pdf` (or
+`application/octet-stream` with a path ending in `.pdf`) is a PDF, the Word content type (or octet-stream with
+`.docx`) is a Word file. Anything else — an HTML page, a redirect to a login, an error status, a network failure
+— goes to the screenshot route. The download alone never fails a document.
+
+**Web screenshots.** Gotenberg loads the page in a 1120 px wide window (`WEB_VIEWPORT_WIDTH`) with screen styles,
+and captures the whole page as one JPEG. Before the capture, a small script (`SCROLL_JS` in `rag/convert.py`):
+
+1. switches lazy images to eager;
+2. scrolls down one window height at a time, at most 40 steps, so lazy content loads;
+3. scrolls back to the top and waits up to 5 seconds for fonts and images.
+
+Sticky headers and fixed elements appear once, not on every page, because it is one screenshot.
+
+**Very tall pages.** Chromium returns an empty image for a page too tall to capture in one shot. The app then
+captures again, cropped to the top 40 pages (`MAX_WEB_PAGES × WEB_SLICE_HEIGHT` = 44,800 px), and the document
+gets the warning "page too tall to capture in one shot; only the first 40 pages are kept".
+
+Files are written under a temporary name and then renamed, so "the file exists" always means it is complete.
+
+## 3. Rendering pages
+
+PyMuPDF is the only imaging library.
+
+- **PDF pages**: one JPEG per page, scaled so the longest edge is 1536 px (`PAGE_LONGEST_EDGE_PX`), JPEG quality
+  85. One page is in memory at a time. A page more than three times as tall as it is wide gets a warning ("text may
+  be unreadable"), because the embedder shrinks it into a single image.
+- **Web screenshots**: cut into 1120 × 1120 px pages (`WEB_SLICE_HEIGHT`), top to bottom, without overlap. A last
+  strip under 28 px is dropped, and only the first 40 pages are kept.
+
+A PDF that cannot be opened, is password-protected, or has more than `MAX_PAGES` (500) pages fails here.
+
+### Why these sizes
+
+The same JPEG is embedded, shown in the UI, and read by the answer model, so its size has to suit all three.
+
+| Page | Stored JPEG |
+| --- | --- |
+| Web slice | 1120 × 1120 |
+| A4 | 1086 × 1536 |
+| US Letter | 1187 × 1536 |
+| 16:9 slide | 1536 × 864 |
+
+- **1536 px for PDF pages** keeps small print legible for the answer model: 9 pt text on A4 is about 16 px tall,
+  and a 7 pt footnote was read correctly in testing. At 1120 px it would be about 12 px.
+- **1120 px for web pages** came from the first embedder (Nemotron), which resized every image to a longest edge
+  of 1120 px; a 1120 × 1120 slice reached it without any downscaling. It is also a normal desktop window width.
+- Larger pages (PixelRAG renders at 200 dpi, 1654 × 2339 for A4) would make requests bigger and cost more with
+  no benefit.
+
+## 4. Embedding
+
+Pages are embedded in order, `EMBED_BATCH_PAGES` (8) per request, as images in "document" mode
+(`EMBED_PASSAGE_TYPE`). After each request:
+
+1. the vectors are upserted into Qdrant (point id `doc_id * 10000 + page`);
+2. then `pages_embedded` is updated in SQLite.
+
+Qdrant goes first. If the app crashes between the two, the batch is embedded again next time: one wasted request,
+and upserting the same ids twice is harmless. The library shows the progress as "Embedding 16/30".
+
+Before the first request the app checks that Qdrant is reachable, so no money is spent on vectors that cannot be
+stored.
+
+With a free (`:free`) embedding model the app also reads the day's remaining free requests once per document and
+stops embedding when only `OR_RESERVE_REQUESTS` are left, so questions keep working. The document then waits
+until shortly after midnight UTC.
+
+## 5. Statuses
+
+```
+ add ──► queued ──claim──► working ──► done
+          ▲  ▲               │
+          │  │               ├─ rate-limited ─► queued + next_attempt_at   ("waiting"; resumes by itself)
+          │  │               ├─ service down ─► queued; the whole worker pauses, a banner says why
+          │  │               └─ document error ─► error + message          (click Retry)
+          │  └── Retry: from error, or from waiting
+          └───── make reembed: every rendered document → queued, pages_embedded = 0
+ Delete: any status except working
+```
+
+| Shown in the library | Status | Meaning |
+| --- | --- | --- |
+| Queued | `queued` | waiting for the worker |
+| Waiting | `queued` with a time | hit a rate limit or the free-quota reserve; resumes at the time shown |
+| Converting | `working`, no pages yet | being converted and rendered |
+| Embedding k/n | `working` | k of n pages embedded |
+| Ready | `done` | every page is searchable |
+| Failed | `error` | the message says why; Retry tries again |
+
+### Three kinds of failure
+
+Every pipeline step ends in one of three exceptions (`errors.py`), and each one is handled differently:
+
+| Exception | When | What happens |
+| --- | --- | --- |
+| `RateLimited` | OpenRouter answered 429, or the free-quota reserve is reached | the document goes back to `queued` with a time; it resumes by itself |
+| `Paused` | a service is unreachable, or the key, credit or model is wrong | the document stays `queued`; the **whole worker** pauses for 1 minute, doubling up to 30 minutes, and a banner shows the reason |
+| `DocError` | this document is the problem: unreadable PDF, blocked URL, page error, too many pages | the document goes to `error` with a message |
+
+Any unexpected exception is treated like a `DocError`, with the traceback in the log.
+
+The `Paused` case exists so that a stopped Docker container or a wrong key doesn't flip every queued document to
+`error`: they simply wait until the problem is fixed. Adding a document or clicking Retry wakes the worker early.
+
+### Resuming
+
+Being claimed again is all it takes to resume. Each step skips work that is already done:
+
+- convert only if neither `doc.pdf` nor `source.jpg` exists;
+- render only if `page_count` is still empty;
+- embed from page `pages_embedded + 1`.
+
+So a crash, a restart, a quota wait or a Retry never repeats finished work.
+
+## 6. Retry and delete
+
+Both run in the request and use compare-and-set updates, so they cannot collide with the worker.
+
+- **Retry** works on a document in `error`, or one that is waiting. It goes back to `queued` and the worker
+  wakes. A partly embedded document continues where it stopped.
+- **Delete** works on anything except a document being processed (that one answers "busy, try again in a
+  moment"). The row is deleted first, so the worker can no longer pick the document up; then its vectors; then its
+  folder. If the app crashes halfway, or Qdrant is down, the next startup removes the leftovers. Search ignores
+  any vector whose document row is gone.
+
+## 7. The OpenRouter client
+
+All model calls go through `rag/openrouter.py`:
+
+- **Throttle**: at least `OR_MIN_INTERVAL_S` (3.2 s) between any two requests, about 18 a minute, under the free
+  tier's limit of 20.
+- **502**: retried right away up to 3 more times. The free Nemotron embedder failed about half of all requests
+  with a random 502, and failed requests cost nothing.
+- **429**: if the free daily quota is used up, wait until shortly after midnight UTC; otherwise wait for
+  `Retry-After`, at least 60 s, doubling with each 429, at most an hour.
+- **Errors map to the three exceptions**: 400/413 → `DocError` (with a hint to lower `EMBED_BATCH_PAGES` if a
+  request was too large), 401/402/404 → `Paused` (key, credit, or privacy settings), 403 moderation →
+  `DocError`, anything else → `Paused`.
+- Every call is logged with model, status, duration, tokens and cost.
+- Plain `httpx` instead of the `openai` SDK: the SDK retries 429s on its own and hides the error bodies.
