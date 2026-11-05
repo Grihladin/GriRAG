@@ -121,3 +121,7 @@ $0.0011: $0.0005 for the agent, whose repeated input was served from OpenRouter'
 $0.0006 for the read. More searches and reads cost more; `AGENT_MAX_STEPS` puts a ceiling on it. The log shows
 the cost of each read and embedding request; agent model calls go through `langchain-openrouter` and are not in
 it, so check the OpenRouter activity page for those.
+
+A deep agent working on screenshots is unbelievably cheaper than the same agent working on text: the pages never
+enter the agent's context, so each step re-sends only the short cited replies, not the text of every page it has
+read.

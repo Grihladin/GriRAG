@@ -1,9 +1,9 @@
 ---
 title: "Decisions"
-description: "The design choices, the alternatives that were rejected, and the known limits."
+description: "The design choices and the known limits."
 ---
 
-Why GriRAG is built the way it is, what was tried and rejected, and what it deliberately doesn't do.
+Why GriRAG is built the way it is and what it deliberately doesn't do.
 
 ## The approach: pages as images
 
@@ -15,58 +15,39 @@ From PixelRAG it takes the approach and a few ideas: one page is one retrieval u
 into rows top to bottom with no overlap and a tiny last strip dropped; the answer message is the question
 followed by one image per page under an evidence-only prompt; and the page is given time to load before capture.
 No PixelRAG code is used. Its own embedder (a LoRA-tuned Qwen3-VL-Embedding-2B) is not on OpenRouter and would
-need torch and about 4.3 GB of memory to run locally.
+need torch and about 4.3 GB of memory to run locally. GriRAG's embedder, `voyageai/voyage-multimodal-3.5`, was
+built specifically for this kind of task, performs far better and takes larger images.
 
 ## Main decisions
 
-| Decision | Why | Rejected |
-| --- | --- | --- |
-| **Gotenberg converts everything**: Word → PDF with LibreOffice, web pages → screenshots with Chromium | One container, configured only with environment variables, with a real browser engine | Lightpanda (no layout engine, its screenshots are text only); a separate Chromium renderer next to Gotenberg |
-| **Web pages are screenshotted, not printed to PDF** | You get the page as it looks on screen: no print styles, no page breaks cutting through content, no fixed header repeated on every page | Printing via Gotenberg's `convert/url`; one image per whole page (the embedder would shrink a long page until it's unreadable) |
-| **Links to PDF/Word files are downloaded**, not opened in Chromium | Headless Chromium either aborts a PDF response as a download or shows a viewer page | — |
-| **PyMuPDF for all images** | Streams one page at a time, needs no poppler, and slices screenshots too, so there is one imaging library | pdf2image + poppler (holds every page in memory), Pillow |
-| **Models through OpenRouter** | The 8 GB laptop it was built on can't run models next to Docker; changing a model is a config change | local models |
-| **Qdrant for vectors, SQLite for the catalog, plain folders for files** | Add and delete per document, no index rebuilds | FAISS (rebuilds everything, no delete); PixelRAG's server (reads its index once at startup); a second copy of each vector in SQLite |
-| **No pages table** | A page's file and point id follow from document id and page number; pages are embedded in order, so one counter is both progress and resume point | a row per page |
-| **The queue is a status column, plus one worker thread** | No extra service, survives restarts; the lock file keeps a second process away | Celery, RQ or arq (need Redis); FastAPI background tasks (lost on restart); a separate worker process (a second throttle) |
-| **Three failure outcomes** (`RateLimited`, `Paused`, `DocError`) | Only quota waits should resume by themselves; a stopped container must not fail every queued document | per-document retry counters and backoff |
-| **Plain `httpx`** | Direct access to 429 headers and error bodies, no hidden retries | the `openai` SDK (retries 429 twice by default, rejects image embedding input in its types) |
-| **Interactive requests are never retried** | Every request costs money; the user decides | automatic retries |
-| **Everything runs in Docker** | Users need only Docker Desktop and a key; the image builds the UI itself | uv and Node.js on the host |
-| **React UI** (Vite, TanStack Router and Query, shadcn/ui) | Separate views for Ask, Library and one document; replaced the first version, a single Jinja2 + htmx page | Gradio and Streamlit (telemetry on by default, heavy dependencies) |
-| **Research is a third mode; Ask stays one-shot** | Ask is the cheap path (one search, one answer); the agent costs several model calls per question, so it is opt-in | making every question agentic |
-| **The agent is deepagents on LangGraph**, in the app process | Ready-made agent loop, tool calling and checkpoints; conversations persist in SQLite (`data/agent.db`) with no extra service | the LangGraph server (another service and its own storage); a hand-written tool loop |
-| **The agent model never sees pages**; `read_pages` sends them to `ANSWER_MODEL` | Any cheap tool-calling model can plan; reading stays with the vision model and the prompt Ask already uses | a vision agent model that gets every page image in its context, re-sent on every step |
-| **Citations are page ids** (`[#120003]`, the Qdrant point id) | Stable for the whole conversation, so follow-ups can cite earlier pages with no extra state; the UI turns them into S1, S2, … | per-answer `[S1]` labels, which would mean different pages in different turns |
-| **assistant-ui with its Assistant Transport protocol** (`assistant-stream` on the server) | Ready chat thread, streaming, tool-call UIs and LangChain message conversion, behind our own FastAPI route | CopilotKit and AG-UI (`ag-ui-langgraph`, `@ag-ui/*`): rejected; a hand-built chat UI and stream format |
+| Decision | Why |
+| --- | --- |
+| **Gotenberg converts everything**: Word → PDF with LibreOffice, web pages → screenshots with Chromium | One container, configured only with environment variables, with a real browser engine |
+| **Web pages are screenshotted, not printed to PDF** | You get the page as it looks on screen: no print styles, no page breaks cutting through content, no fixed header repeated on every page, and lazy-loaded content is captured too, because a script scrolls the page before the capture |
+| **Links to PDF/Word files are downloaded**, not opened in Chromium | Headless Chromium either aborts a PDF response as a download or shows a viewer page |
+| **PyMuPDF for all images** | Streams one page at a time, needs no poppler, and slices screenshots too, so there is one imaging library |
+| **Models through OpenRouter** | My Mac has 8 GB of memory and can't run models next to Docker, so I use OpenRouter; changing a model is a config change |
+| **Qdrant for vectors, SQLite for the catalog, plain folders for files** | Add and delete per document, no index rebuilds |
+| **No pages table** | A page's file and point id follow from document id and page number; pages are embedded in order, so one counter is both progress and resume point |
+| **The queue is a status column, plus one worker thread** | No extra service, survives restarts; the lock file keeps a second process away |
+| **Three failure outcomes** (`RateLimited`, `Paused`, `DocError`) | Only quota waits should resume by themselves; a stopped container must not fail every queued document |
+| **Plain `httpx`** | Direct access to 429 headers and error bodies, no hidden retries |
+| **Interactive requests are never retried** | Every request costs money; the user decides |
+| **Everything runs in Docker** | Users need only Docker Desktop and a key; the image builds the UI itself |
+| **React UI** (Vite, TanStack Router and Query, shadcn/ui) | Vite starts almost instantly and shows every change in the browser right away, and with React and shadcn/ui it's quick and easy to build a good-looking, lightweight interface, with separate views for Ask, Research, Library and one document |
+| **Research is a second mode; Ask stays one-shot** | Ask is the cheap path (one search, one answer); the agent costs several model calls per question, so it is opt-in |
+| **The agent is deepagents on LangGraph**, in the app process | Ready-made agent loop, tool calling and checkpoints; conversations persist in SQLite (`data/agent.db`) with no extra service |
+| **The agent model never sees pages**; `read_pages` sends them to `ANSWER_MODEL` | Any cheap tool-calling model can plan; reading stays with the vision model and the prompt Ask already uses |
+| **Citations are page ids** (`[#120003]`, the Qdrant point id) | Stable for the whole conversation, so follow-ups can cite earlier pages with no extra state; the UI turns them into S1, S2, … |
+| **assistant-ui with its Assistant Transport protocol** (`assistant-stream` on the server) | I love it ❤️ Ready chat thread, streaming, tool-call UIs and LangChain message conversion, behind our own FastAPI route |
 
 ## Models
-
-### The free start, and why it ended
-
-GriRAG started on free OpenRouter models: `nvidia/nemotron-3.5-embed-8b:free` for pages and
-`google/gemma-4-31b-it:free` for answers. Building with them showed:
-
-- The hosted embedder accepted **one image per request**; two or more returned 502. Every page cost one of the 50
-  free requests a day.
-- About **half of all requests failed** with a random 502 (the same image alternated between 200 and 502). Since
-  failed requests are free, a 502 is retried up to 3 more times.
-- **Some page shapes always failed**, US Letter among them, while squares never did. Padding each page to a white
-  square for the embedding request fixed it; that is `EMBED_SQUARE_PAGES`.
-- The single provider had **multi-hour outages** for images.
-- `input_type` was accepted but changed nothing for images; text prefixes plus an image in one input returned 502.
-- The free Gemma was rate-limited upstream all day.
-
-On 2026-10-30 GriRAG switched to paid models.
-
-### The current models
 
 - **Embedding: `voyageai/voyage-multimodal-3.5`.** Billed per pixel, about $0.001 per A4 page and $0.00075 per
   web slice. It takes several images per request (`EMBED_BATCH_PAGES=8`), honours `input_type`
   `query`/`document`, returns 1024-dimensional vectors, and had the best ViDoRe V2 score of the image embedders
-  on OpenRouter (65.5). Square padding is off: it would raise the cost by about 42% on A4.
-- **Answers: `meta/muse-spark-1.3-contributor`**, about $0.0006 per question with 8 pages. Earlier the paid
-  `google/gemma-4-31b-it`.
+  on OpenRouter (65.5).
+- **Answers: `meta/muse-spark-1.3-contributor`**, about $0.0006 per question with 8 pages.
 - **Research agent: the same Muse Spark 1.3** (`AGENT_MODEL`). It supports tool calling and temperature,
   costs $0.10 / $0.20 per million input / output tokens with cheap cached input (each agent step re-sends the same
   instructions), and keeps everything on one model.
@@ -80,16 +61,6 @@ line in the UI turn on only when a `:free` model is configured.
   The answer card still shows only the pages the answer cites.
 - **1536 px PDF pages and 1120 px web slices**: see [Ingestion](/ingestion#why-these-sizes).
 
-## Findings from building it
-
-- Gotenberg's `skipNetworkAlmostIdleEvent=false` made even `example.com` run into the 5-minute time limit, so it
-  isn't sent; `SCROLL_JS` does the waiting.
-- A page too tall for one capture comes back as an **empty 200**, not an error. GriRAG then captures the top 50
-  slices with `clip=true`. Side effect: during that capture the window is 56,000 px tall, so sections sized in
-  `vh` units stretch.
-- Since Gotenberg 8.34, images linked (not embedded) in Word files are dropped.
-- LibreOffice picks the input format from the file extension, so uploads keep theirs (`original.docx`).
-
 ## Trade-offs accepted
 
 - **Pages and questions leave your computer** for OpenRouter and its providers. Privacy is out of scope.
@@ -100,9 +71,9 @@ line in the UI turn on only when a `:free` model is configured.
 - **The document title is the file name or the link.** Web pages are screenshots, and the HTML isn't parsed for
   a title.
 
-## Not built (yet)
+## Not built
 
-Deliberately out of scope, roughly in order of how likely they are to matter:
+Out of scope since my time is limited, roughly in order of how likely they are to matter:
 
 - OCR, text extraction, keyword or hybrid search (would also give snippets)
 - streaming answers in Ask (Research streams); a list of past Research conversations

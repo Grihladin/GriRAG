@@ -19,7 +19,7 @@ pictures.
 | **Qdrant** 1.20.0 | Docker, port 6333 | Stores one vector per page and finds the pages closest to a question |
 | **SQLite** | inside the app, files `data/app.db` and `data/agent.db` | The document catalog and the job queue, in one table; Research conversations |
 | **OpenRouter** | remote API | Embeds pages and questions, and runs the answer and agent models |
-| **UI** (React, Vite, Tailwind, shadcn/ui, assistant-ui) | built into the app image, served at `/` | Ask, Search, Research, Library, Add, Settings |
+| **UI** (React, Vite, Tailwind, shadcn/ui, assistant-ui) | built into the app image, served at `/` | Ask, Research, Library, Add, Settings |
 
 All ports listen on 127.0.0.1 only. There is no login, so GriRAG must not be exposed to a network.
 
