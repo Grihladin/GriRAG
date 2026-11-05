@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ComposerAddAttachment,
   ComposerAttachments,
   UserMessageAttachments,
 } from "@/components/assistant-ui/elements/attachment.aui";
@@ -112,8 +111,7 @@ const reasoningDuration = (timing: ThreadGroupPart["timing"]) =>
  * `ToolFallback`. When `TaskGroup` is set, tool calls that carry a nested
  * conversation and have no registered UI render through it instead of the
  * tool group; without it they render like any other tool call.
- * `ComposerExtra` renders in the composer's action row beside the attach
- * button.
+ * `ComposerExtra` renders at the start of the composer's action row.
  */
 export type ThreadComponents = {
   AssistantMessage?: ComponentType | undefined;
@@ -557,15 +555,12 @@ const ComposerAction: FC = () => {
 
   return (
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
-      {ComposerExtra ? (
+      {ComposerExtra && (
         <div className="aui-composer-action-start flex items-center gap-1.5">
-          <ComposerAddAttachment />
           <ComposerExtra />
         </div>
-      ) : (
-        <ComposerAddAttachment />
       )}
-      <div className="flex items-center gap-1.5">
+      <div className="ml-auto flex items-center gap-1.5">
         <AuiIf condition={(s) => s.thread.capabilities.dictation}>
           <AuiIf condition={(s) => s.composer.dictation == null}>
             <ComposerPrimitive.Dictate asChild>
