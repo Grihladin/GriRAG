@@ -33,15 +33,15 @@ export type Hit = {
   image_url: string
 }
 
-export type SearchResult = { groups: Hit[][]; message: string | null }
 export type AskResult = {
   answer: { text: string; model: string; sources: Hit[] } | null
-  groups: Hit[][] // every matching page, as in SearchResult
+  groups: Hit[][] // every matching page, one list per document, best first
   message: string | null
 }
 
 export type Config = {
   answer: { model: string; temperature: number; reasoning_effort: string | null; pages: number; max_tokens: number }
+  agent: { model: string; temperature: number; max_steps: number }
   embedding: { model: string; batch_pages: number; query_type: string; passage_mode: string }
   pages: { longest_edge_px: number; jpeg_quality: number; web_viewport_width: number; web_slice_height: number }
   limits: { max_pages: number; max_web_pages: number; max_upload_mb: number }
@@ -66,8 +66,9 @@ export const api = {
   config: () => call<Config>('/api/config'),
   quota: () => call<{ quota: string | null }>('/api/quota'),
   add: (form: FormData) => call<AddResult>('/api/add', { method: 'POST', body: form }),
-  search: (q: string) => call<SearchResult>(`/api/search?q=${encodeURIComponent(q)}`),
   ask: (q: string) => call<AskResult>('/api/ask', post({ q })),
   retry: (id: number) => call<{ message: string | null }>(`/api/docs/${id}/retry`, { method: 'POST' }),
   remove: (id: number) => call<{ message: string | null }>(`/api/docs/${id}`, { method: 'DELETE' }),
+  // A Research conversation as LangChain message dicts (POST /api/agent streams it; see research-page.tsx).
+  conversation: <T>(threadId: string) => call<{ messages: T[] }>(`/api/agent/${encodeURIComponent(threadId)}`),
 }

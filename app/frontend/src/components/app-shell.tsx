@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, Outlet, useLocation } from '@tanstack/react-router'
+import { Link, Outlet, useLocation, useMatch } from '@tanstack/react-router'
 import { CircleXIcon, ClockIcon, MoonIcon, PauseIcon, PlusIcon, SunIcon } from 'lucide-react'
 import type { Doc } from '@/api'
 import { AddPanel } from '@/components/add-panel'
@@ -33,6 +33,7 @@ export function AppShell() {
   const closeAdd = useCallback(() => setAdd((a) => ({ ...a, open: false })), [])
   const dragging = useFileDrop(openAdd)
   const onDoc = useLocation({ select: (l) => l.pathname.startsWith('/docs/') })
+  const { askQ, researchT } = useLastPlaces()
 
   return (
     <AddContext value={openAdd}>
@@ -50,8 +51,21 @@ export function AppShell() {
               <span className="text-[1.05rem] font-bold tracking-[-0.02em] max-sm:sr-only">GriRAG</span>
             </Link>
             <nav className="flex gap-1 text-sm">
-              <Link to="/" className={navLink} activeOptions={{ exact: true, includeSearch: false }}>
+              <Link
+                to="/"
+                search={{ q: askQ }}
+                className={navLink}
+                activeOptions={{ exact: true, includeSearch: false }}
+              >
                 Ask
+              </Link>
+              <Link
+                to="/research"
+                search={{ t: researchT }}
+                className={navLink}
+                activeOptions={{ includeSearch: false }}
+              >
+                Research
               </Link>
               <Link
                 to="/library"
@@ -99,6 +113,17 @@ export function AppShell() {
       )}
     </AddContext>
   )
+}
+
+// Where Ask and Research were left, so their links go back there: the question last asked (its answer is still
+// cached) and the conversation last open. In memory only: after a reload Ask opens empty instead of asking again.
+function useLastPlaces() {
+  const ask = useMatch({ from: '/', shouldThrow: false })?.search
+  const research = useMatch({ from: '/research', shouldThrow: false })?.search
+  const [last, setLast] = useState<{ askQ?: string; researchT?: string }>({})
+  if (ask && ask.q !== last.askQ) setLast({ ...last, askQ: ask.q })
+  if (research?.t && research.t !== last.researchT) setLast({ ...last, researchT: research.t })
+  return last
 }
 
 // Files dragged over the window: show the outline; a drop not handled by a drop zone calls onDrop.

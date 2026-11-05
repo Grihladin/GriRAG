@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import Markdown from 'react-markdown'
 import type { AskResult } from '@/api'
+import { CitationChip } from '@/components/citation'
 import type { ViewerPage } from '@/components/page-viewer'
 import { PageThumb } from '@/components/search-results'
 import { displayTitle } from '@/lib/library'
@@ -52,18 +53,16 @@ export function AnswerView({ answer, onOpen }: { answer: Answer; onOpen: (p: Vie
             const s = answer.sources[n - 1]
             if (!s) return <span className="text-muted-foreground">[S{n}]</span>
             return (
-              <button
-                type="button"
+              <CitationChip
                 title={`${displayTitle(s)}, page ${s.page_no}`}
                 onClick={() => onOpen({ docId: s.doc_id, page: s.page_no, label: `S${n}` })}
                 onMouseEnter={() => setHovered(n)}
                 onMouseLeave={() => setHovered(null)}
                 onFocus={() => setHovered(n)}
                 onBlur={() => setHovered(null)}
-                className="relative ml-0.5 inline-flex h-5 items-center rounded-full border bg-muted px-1.5 align-text-bottom text-xs font-medium after:absolute after:inset-x-0 after:-inset-y-2.5 hover:border-transparent hover:bg-highlight-soft hover:text-highlight-foreground focus-visible:bg-highlight-soft focus-visible:text-highlight-foreground"
               >
                 {children}
-              </button>
+              </CitationChip>
             )
           },
         }}
