@@ -1,4 +1,4 @@
-"""Page vectors in Qdrant: one point per page, grouped search per document. PLAN.md §4.2."""
+"""Page vectors in Qdrant: one point per page, grouped search per document."""
 import warnings
 from contextlib import contextmanager
 
@@ -39,7 +39,7 @@ def collection_exists(qc: QdrantClient, cfg: Config) -> bool:
 
 
 def check_collection(qc: QdrantClient, conn, cfg: Config) -> None:
-    """Exit if the stored vectors no longer match the config, or were lost (PLAN.md §4.2)."""
+    """Exit if the stored vectors no longer match the config, or were lost."""
     _pages, requests = store.request_estimate(conn, cfg.embed_batch_pages)
     if collection_exists(qc, cfg):
         meta = qc.get_collection(cfg.qdrant_collection).config.metadata or {}

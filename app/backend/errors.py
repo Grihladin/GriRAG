@@ -1,4 +1,4 @@
-"""The three failure outcomes of a pipeline step (PLAN.md §8.4); search and ask show them as messages."""
+"""The three failure outcomes of a pipeline step; search and ask show them as messages."""
 
 
 class DocError(Exception):

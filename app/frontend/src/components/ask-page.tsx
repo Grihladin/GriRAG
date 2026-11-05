@@ -154,7 +154,7 @@ function Results({ q, mode, quota }: { q: string; mode: Mode; quota?: string | n
   const queryClient = useQueryClient()
   const [viewer, setViewer] = useState<ViewerPage | null>(null)
   const refreshQuota = () => void queryClient.invalidateQueries({ queryKey: ['quota'] })
-  // Only the query for the current mode runs. Asking is never retried automatically (PLAN.md §6.2).
+  // Only the query for the current mode runs. Asking is never retried automatically.
   const ask = useQuery({
     queryKey: ['ask', q],
     queryFn: async () => {

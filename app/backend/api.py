@@ -1,4 +1,4 @@
-"""The JSON API under /api that the UI talks to. User-facing errors are 200 responses with a `message`. PLAN.md §7."""
+"""The JSON API under /api that the UI talks to. User-facing errors are 200 responses with a `message`."""
 import sqlite3
 import time
 from collections.abc import Iterator

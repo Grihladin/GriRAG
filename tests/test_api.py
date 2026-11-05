@@ -1,4 +1,4 @@
-"""JSON API under /api (PLAN.md §7). The app runs without its lifespan; deps come from conftest."""
+"""JSON API under /api. The app runs without its lifespan; deps come from conftest."""
 import dataclasses
 import time
 

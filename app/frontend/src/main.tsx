@@ -40,7 +40,7 @@ declare module '@tanstack/react-router' {
   }
 }
 
-// Interactive requests cost money and are never retried automatically (PLAN.md §6.2).
+// Interactive requests cost money and are never retried automatically.
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } })
 
 createRoot(document.getElementById('root')!).render(

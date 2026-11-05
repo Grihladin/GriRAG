@@ -1,4 +1,4 @@
-"""The FastAPI app: startup checks, the worker thread, /api, /files and the built UI. PLAN.md §9 (lifespan order).
+"""The FastAPI app: startup checks, the worker thread, /api, /files and the built UI.
 
 Run with `uvicorn app.backend.main:app` (one process, no --workers)."""
 import logging
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     app.state.deps, app.state.worker = deps, thread
     app.mount("/files", StaticFiles(directory=cfg.data_dir / "docs"), name="files")
     if not (UI_DIST / "index.html").exists():
-        log.warning("app/frontend/dist not built; run make web (or use the Vite dev server)")
+        log.warning("app/frontend/dist not built; run `npm run build` in app/frontend (or use the Vite dev server)")
     try:
         yield
     finally:
