@@ -1,0 +1,140 @@
+---
+title: "Architecture"
+description: "The parts of GriRAG, what each one does, and where data is stored."
+---
+
+GriRAG turns every document into page images, embeds those images, and answers questions by showing the best
+pages to a vision model. Nothing in it reads text out of a document: tables, charts and layout reach the model as
+pictures.
+
+<img className="block dark:hidden" src="/images/architecture.png" alt="The browser talks to the FastAPI app. The app, Gotenberg and Qdrant run in Docker; SQLite and page images stay in data/ on your computer; OpenRouter does embeddings and answers." />
+<img className="hidden dark:block" src="/images/architecture-dark.png" alt="The browser talks to the FastAPI app. The app, Gotenberg and Qdrant run in Docker; SQLite and page images stay in data/ on your computer; OpenRouter does embeddings and answers." />
+
+## Parts
+
+| Part | Where it runs | Job |
+| --- | --- | --- |
+| **App** (FastAPI, Python 3.14) | Docker container `GriRAG`, port 8000 | Serves the UI and the JSON API, and runs the worker thread that processes documents |
+| **Gotenberg** 8.39.0 | Docker, port 3100 | Turns Word files into PDF (LibreOffice) and web pages into screenshots (Chromium) |
+| **Qdrant** 1.20.0 | Docker, port 6333 | Stores one vector per page and finds the pages closest to a question |
+| **SQLite** | inside the app, file `data/app.db` | The document catalog and the job queue, in one table |
+| **OpenRouter** | remote API | Embeds pages and questions, and runs the answer model |
+| **UI** (React, Vite, Tailwind, shadcn/ui) | built into the app image, served at `/` | Ask, Search, Library, Add, Settings |
+
+All ports listen on 127.0.0.1 only. There is no login, so GriRAG must not be exposed to a network.
+
+## One process, one worker
+
+The app is a single process. Next to the web server it runs one background **worker thread**, which takes queued
+documents one at a time and pushes each through the pipeline. There is no separate queue service: the
+`documents.status` column is the queue (see [Ingestion](/ingestion)).
+
+A lock on `data/worker.lock` makes sure only one process works on `data/` at a time. A second app, or a
+`reembed` while the app runs, refuses to start.
+
+### Startup
+
+When the app starts it:
+
+1. reads the settings and checks that `OPENROUTER_API_KEY` is set;
+2. creates `data/docs` and `data/tmp`, and takes the worker lock;
+3. checks the Qdrant collection against the settings. If the embedding model or passage mode changed, or the
+   vectors are gone while documents were embedded, it exits and asks for `make reembed`
+   ([Operations](/operations#re-embedding));
+4. recovers from a crash: documents left `working` go back to `queued`, and folders without a catalog row are
+   deleted together with their vectors;
+5. starts the worker thread, serves `data/docs` at `/files`, and serves the built UI.
+
+## Where data lives
+
+Everything GriRAG stores is in the `data/` folder of the main checkout, bind-mounted into the containers.
+Deleting `data/` empties the library.
+
+```
+data/
+├── app.db              SQLite catalog (plus app.db-wal, app.db-shm)
+├── worker.lock         held by the running app or reembed
+├── tmp/                uploads while they stream in
+├── qdrant/             Qdrant's own storage (the page vectors)
+└── docs/
+    └── 42/             one folder per document id
+        ├── original.docx   an uploaded or downloaded Word file
+        ├── doc.pdf         the PDF: uploaded, downloaded, or converted from Word
+        ├── source.jpg      a web page: one full-page screenshot
+        └── pages/
+            ├── 0001.jpg    one JPEG per page; embedded, shown and sent to the answer model
+            └── 0002.jpg
+```
+
+A document has either `doc.pdf` or `source.jpg`, never both. The page JPEGs are kept forever, so changing the
+embedding model never needs a re-render.
+
+### The catalog: one SQLite table
+
+| Column | Meaning |
+| --- | --- |
+| `id` | never reused (`AUTOINCREMENT`) |
+| `kind` | `pdf`, `office` or `url` |
+| `source` | the file name or the link |
+| `title` | shown in the UI; currently the same as `source` |
+| `dedup_key` | `sha256:<hash of the file>` or `url:<normalized link>`; unique, so the same thing cannot be added twice |
+| `status` | `queued`, `working`, `done` or `error` |
+| `message` | why it failed or why it is waiting |
+| `warning` | a non-fatal note, e.g. very tall pages or a web page cut after 40 pages |
+| `next_attempt_at` | for a waiting document, when it may run again (unix seconds) |
+| `page_count` | set once the pages are rendered; `NULL` before |
+| `pages_embedded` | how many pages are in Qdrant; also where embedding resumes |
+
+There is no table of pages: page *n* of document *d* is always `data/docs/d/pages/nnnn.jpg`.
+
+### The vectors: one Qdrant collection
+
+- The collection is named `pages`, uses cosine distance, and is created on the first upsert, sized by the first
+  vector (1024 dimensions for Voyage).
+- One point per page. Point id = `doc_id * 10000 + page`, payload `{doc_id, page}`. That is why `MAX_PAGES` must
+  stay at 9999 or below.
+- The collection metadata records `embed_model`, `dim` and `passage_mode`. Startup compares them with the
+  settings, so vectors from two different models never get mixed.
+- Qdrant holds the only copy of the vectors. If they are lost, `make reembed` rebuilds them from the page JPEGs.
+
+## Code map
+
+```
+app/backend/
+├── main.py         the FastAPI app: startup checks, the worker thread, /files and the UI
+├── api.py          the JSON routes under /api
+├── config.py       settings from the environment, with defaults
+├── deps.py         what routes and worker share (clients, wake event, worker status), so tests can swap in fakes
+├── documents.py    add, retry and delete (runs in the request)
+├── worker.py       the worker loop, startup recovery, the worker lock, reembed
+├── store.py        all SQL, plus the paths of document folders and page files
+├── errors.py       DocError, Paused, RateLimited
+├── cli.py          `smoke` and `reembed`
+└── rag/
+    ├── ingest.py   one document through convert → render → embed → upsert
+    ├── convert.py  link downloads and Gotenberg calls
+    ├── render.py   PyMuPDF: PDF pages, screenshot slices, square padding
+    ├── embedder.py the Embedder interface and the OpenRouter implementation
+    ├── openrouter.py  the only code that calls OpenRouter: throttle, quota, error mapping
+    ├── vectors.py  Qdrant: collection, upsert, grouped search, delete
+    ├── search.py   question → best pages, grouped by document
+    └── answer.py   best pages → answer with [S1] citations
+app/frontend/src/   the React UI; components/ has one file per view or widget
+tests/              unit tests with fakes for OpenRouter, Gotenberg and Qdrant; no network
+```
+
+## Docker setup
+
+`docker-compose.yml` defines the three containers under the Compose project `grirag`.
+
+- **App image** (`Dockerfile`): stage one builds the UI with Node; stage two installs the Python dependencies with
+  uv and copies in the backend and the built UI. The image holds no data and no secrets: `data/` is mounted at
+  `/data`, and `.env` is passed in as environment variables.
+- **Gotenberg** is locked down: Chromium may not reach private addresses (it runs without a sandbox, so this keeps
+  web pages away from Qdrant, your Mac and your LAN), common cookie-consent vendors are blocked so their banners
+  never load, only one Chromium runs at a time, and idle browsers shut down after 5 minutes.
+- **Qdrant** has telemetry and CORS turned off.
+- Memory limits: Gotenberg 2 GB, Qdrant 1 GB, app 1 GB.
+- The Makefile sets `GRIRAG_HOME` to the main checkout, and Compose takes `data/` and `.env` from there. That
+  makes `make up` safe in a git worktree: it runs the worktree's code on the one library
+  ([Operations](/operations#working-in-a-git-worktree)).

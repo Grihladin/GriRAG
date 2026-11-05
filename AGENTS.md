@@ -1,7 +1,17 @@
 # AGENTS.md
 
-Instructions for coding agents working in this repository. Read `README.md` for setup, daily use and the
-architecture.
+Instructions for coding agents working in this repository. Read `README.md` for setup and daily use, and
+`docs/` for the architecture, the pipeline, every setting and the design decisions. Keep `docs/` in step with
+the code when you change behaviour or settings.
+
+## Docs site
+
+- `docs/` is a Mintlify site (`docs/docs.json`, pages as `.mdx`), published from `main` at
+  https://grirag.mintlify.site. A new page must be added to `navigation` in `docs.json`.
+- Links between pages are root-relative without extension (`/configuration#limits`). Images live in
+  `docs/images/` and are referenced as `/images/x.png` in the docs and `docs/images/x.png` in the README.
+- MDX reads `{`, `}` and `<` in prose as code: keep them inside backticks.
+- Check with `cd docs && npx mint validate && npx mint broken-links`; preview with `npx mint dev`.
 
 GriRAG is a single-user visual RAG. You add PDFs, Word files and web links; every page becomes an image;
 the images are embedded through OpenRouter and stored in Qdrant; a vision model answers from the best
@@ -43,10 +53,10 @@ shadcn/ui in `app/frontend/`.
 
 ## README diagrams
 
-- Sources are `docs/diagrams/*.excalidraw` (open them on excalidraw.com to edit); the README shows PNGs from
-  `assets/`, a light and a `-dark` version of each, switched with `<picture>`.
+- Sources are `docs/diagrams/*.excalidraw` (open them on excalidraw.com to edit); the README and the docs show PNGs
+  from `docs/images/`, a light and a `-dark` version of each, switched with `<picture>`.
 - Render with the official Excalidraw CLI (`npm i -g @excalidraw/cli`), which needs Chrome, Chromium, Edge or
   Firefox (or `EXCALIDRAW_BROWSER_PATH`):
-  `excalidraw render docs/diagrams/X.excalidraw --out assets/X.png --scale 2 --transparent`, then again with
-  `--theme dark --out assets/X-dark.png`.
+  `excalidraw render docs/diagrams/X.excalidraw --out docs/images/X.png --scale 2 --transparent`, then again with
+  `--theme dark --out docs/images/X-dark.png`.
 - Excalidraw does not resize boxes to their text: make a box wide enough for its label.

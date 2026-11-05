@@ -1,0 +1,73 @@
+---
+title: "Search and answers"
+description: "How a question finds pages and how the answer is made."
+---
+
+The home page has one box with two modes. **Ask** answers the question with citations; **Search** only finds
+pages and never calls the answer model. The question is part of the URL (`/?q=…`, plus `&mode=search`), so a
+result can be bookmarked; reloading the page asks again.
+
+## Search
+
+1. **Embed the question** with the same model as the pages, in "query" mode (`EMBED_QUERY_TYPE`). The last 256
+   questions are cached, so asking again or switching between Ask and Search costs no extra request.
+2. **Ask Qdrant for grouped results**: the `SEARCH_GROUPS` (10) best documents, each with up to
+   `max(ANSWER_PAGES, 3)` (8) of its best pages, ranked by cosine similarity.
+3. **Join the catalog** for title, kind and link. A hit whose document was just deleted is dropped.
+
+The UI shows the results as page thumbnails grouped by document, best document first. Clicking a page opens it
+large, with ← and → through its document.
+
+## Ask
+
+1. Run the search above.
+2. Take the `ANSWER_PAGES` (8) best pages across **all** documents, by score.
+3. Send the answer model one message: the question, then each page as a label and an image, e.g.
+   `[S1] invoice.pdf, page 2` followed by the JPEG.
+4. Show the answer, the pages it cites, and every matching page below.
+
+### The prompt
+
+The system prompt is adapted from PixelRAG's `SYSTEM_PROMPT_EVIDENCE_QA`:
+
+```
+You answer questions using only the document pages shown as images.
+Each image is preceded by a label such as [S1].
+After each statement, cite the label(s) of the page(s) it comes from, e.g. "The total is 4,312 EUR [S2]."
+If the pages do not contain the answer, reply "Not found in the retrieved pages." and stop.
+Be concise. Answer in the language of the question.
+```
+
+Settings sent with it: `ANSWER_MAX_TOKENS` (2048), `ANSWER_TEMPERATURE` (0.4) and `ANSWER_REASONING_EFFORT`
+(`max`). Any `<think>…</think>` block in the reply is removed. If the model spends its whole token budget on
+reasoning and returns nothing, the message says to raise `ANSWER_MAX_TOKENS`.
+
+### Citations in the UI
+
+- The answer is rendered as Markdown (raw HTML off). `[S1]`, `[S1, S3]` and `[S1][S2]` become buttons that open
+  the cited page.
+- **Sources** shows only the pages the answer actually cites, in S order and with their S numbers. A label that
+  doesn't exist, such as `[S9]` when 8 pages were sent, is ignored.
+- If the answer cites nothing (for example "Not found in the retrieved pages."), the card shows every page the
+  model read, under **Pages read**.
+- **All matching pages** below the answer are the full search results.
+
+## Failures are messages, never retries
+
+Questions cost money, so a failed search or answer is never retried automatically. Instead the API returns a
+message and the UI shows it:
+
+| Situation | Message |
+| --- | --- |
+| empty question | "Type a question first." |
+| no vectors yet | "No documents yet." |
+| nothing found | "No matching pages." |
+| rate-limited | "Rate-limited, try again in N s" |
+| free daily quota used up | "Daily free limit reached; resets HH:MM" |
+| Qdrant or OpenRouter down, bad key, no credit | the same text the worker banner would show |
+
+## Cost
+
+With the default models a question costs one embedding request (skipped when cached) and one answer request with
+8 page images: well under $0.001. Every call is logged with its cost
+(`docker compose logs -f grirag`).

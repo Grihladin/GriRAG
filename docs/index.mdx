@@ -1,0 +1,51 @@
+---
+title: "Introduction"
+description: "Ask questions about your PDFs, Word files and web pages, with citations to the exact pages."
+---
+
+GriRAG reads every page as an image, so tables, charts and layout survive, and answers with citations to the
+exact pages it used. It runs on your computer, for one user.
+
+<img src="/images/screenshot.png" alt="GriRAG answering when the United States was established, citing one Wikipedia page, with that page under Sources and all matching pages below." />
+
+## How it works
+
+<img className="block dark:hidden" src="/images/pipeline.png" alt="Add a document: PDF, DOCX or link, then PDF or screenshot (Gotenberg), page images (PyMuPDF), page vectors (Voyage via OpenRouter), Qdrant. Ask a question: question, query vector, 8 best pages from Qdrant, vision model, answer with page citations." />
+<img className="hidden dark:block" src="/images/pipeline-dark.png" alt="Add a document: PDF, DOCX or link, then PDF or screenshot (Gotenberg), page images (PyMuPDF), page vectors (Voyage via OpenRouter), Qdrant. Ask a question: question, query vector, 8 best pages from Qdrant, vision model, answer with page citations." />
+
+Every document becomes page images: Word files and web pages go through Gotenberg first, web pages as a
+screenshot cut into pages. Each page is embedded with a multimodal model and stored in Qdrant. A question is
+embedded the same way, the 8 closest pages are sent to a vision model, and it answers only from them, citing
+each page it used ([S1], [S2], …).
+
+The approach follows [PixelRAG](https://github.com/StarTrail-org/PixelRAG) (Apache-2.0). No PixelRAG code is
+used; the answer prompt is adapted from its `SYSTEM_PROMPT_EVIDENCE_QA`.
+
+## Read on
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Running in a few minutes with Docker and an OpenRouter key.
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    The parts, what each one does, and where data is stored.
+  </Card>
+  <Card title="Ingestion" icon="file-import" href="/ingestion">
+    From adding a document to every page being searchable.
+  </Card>
+  <Card title="Search and answers" icon="magnifying-glass" href="/search-and-answers">
+    How a question finds pages and how the answer is made.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/configuration">
+    Every setting, and which changes need a re-embed.
+  </Card>
+  <Card title="Operations" icon="wrench" href="/operations">
+    Updating, backups, re-embedding and troubleshooting.
+  </Card>
+  <Card title="API" icon="code" href="/api">
+    The JSON API the UI talks to.
+  </Card>
+  <Card title="Decisions" icon="scale-balanced" href="/decisions">
+    Why it is built this way, and what it doesn't do.
+  </Card>
+</CardGroup>
