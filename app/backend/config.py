@@ -19,7 +19,10 @@ class Config:
     answer_reasoning_effort: str = "max"
     answer_temperature: float = 0.4
     answer_pages: int = 8
-    answer_max_tokens: int = 2048
+    answer_max_tokens: int = 8192
+    agent_model: str = "meta/muse-spark-1.3-contributor"   # Research: plans, calls the tools, writes the answer
+    agent_temperature: float = 0.2
+    agent_max_steps: int = 40                # LangGraph recursion limit per question: caps the model calls (cost)
     or_reserve_requests: int = 10
     or_min_interval_s: float = 3.2
     web_viewport_width: int = 1120

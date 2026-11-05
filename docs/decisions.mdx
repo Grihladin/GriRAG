@@ -34,6 +34,11 @@ need torch and about 4.3 GB of memory to run locally.
 | **Interactive requests are never retried** | Every request costs money; the user decides | automatic retries |
 | **Everything runs in Docker** | Users need only Docker Desktop and a key; the image builds the UI itself | uv and Node.js on the host |
 | **React UI** (Vite, TanStack Router and Query, shadcn/ui) | Separate views for Ask, Library and one document; replaced the first version, a single Jinja2 + htmx page | Gradio and Streamlit (telemetry on by default, heavy dependencies) |
+| **Research is a third mode; Ask stays one-shot** | Ask is the cheap path (one search, one answer); the agent costs several model calls per question, so it is opt-in | making every question agentic |
+| **The agent is deepagents on LangGraph**, in the app process | Ready-made agent loop, tool calling and checkpoints; conversations persist in SQLite (`data/agent.db`) with no extra service | the LangGraph server (another service and its own storage); a hand-written tool loop |
+| **The agent model never sees pages**; `read_pages` sends them to `ANSWER_MODEL` | Any cheap tool-calling model can plan; reading stays with the vision model and the prompt Ask already uses | a vision agent model that gets every page image in its context, re-sent on every step |
+| **Citations are page ids** (`[#120003]`, the Qdrant point id) | Stable for the whole conversation, so follow-ups can cite earlier pages with no extra state; the UI turns them into S1, S2, … | per-answer `[S1]` labels, which would mean different pages in different turns |
+| **assistant-ui with its Assistant Transport protocol** (`assistant-stream` on the server) | Ready chat thread, streaming, tool-call UIs and LangChain message conversion, behind our own FastAPI route | CopilotKit and AG-UI (`ag-ui-langgraph`, `@ag-ui/*`): rejected; a hand-built chat UI and stream format |
 
 ## Models
 
@@ -62,6 +67,9 @@ On 2026-10-30 GriRAG switched to paid models.
   on OpenRouter (65.5). Square padding is off: it would raise the cost by about 42% on A4.
 - **Answers: `meta/muse-spark-1.3-contributor`**, about $0.0006 per question with 8 pages. Earlier the paid
   `google/gemma-4-31b-it`.
+- **Research agent: the same Muse Spark 1.3** (`AGENT_MODEL`). It supports tool calling and temperature,
+  costs $0.10 / $0.20 per million input / output tokens with cheap cached input (each agent step re-sends the same
+  instructions), and keeps everything on one model.
 
 Free models still work: they are a config change (see `.env.example`), and the free-quota budget and the quota
 line in the UI turn on only when a `:free` model is configured.
@@ -97,7 +105,7 @@ line in the UI turn on only when a `:free` model is configured.
 Deliberately out of scope, roughly in order of how likely they are to matter:
 
 - OCR, text extraction, keyword or hybrid search (would also give snippets)
-- follow-up questions, chat history, streaming answers
+- streaming answers in Ask (Research streams); a list of past Research conversations
 - refreshing a web page in place (now: delete and add again)
 - neighbouring pages as extra answer context; a per-document search filter
 - logins, cookies or paywalls per site; intranet links (blocked by the private-address rule)

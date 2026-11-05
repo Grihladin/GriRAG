@@ -56,7 +56,8 @@ make up
 To restore, stop the stack and put the copy back as `data/`.
 
 If only `data/qdrant` is lost, the page images are enough: `make reembed` rebuilds the vectors. If
-`data/app.db` or `data/docs` is lost, the documents have to be added again.
+`data/app.db` or `data/docs` is lost, the documents have to be added again. `data/agent.db` holds only the
+Research conversations: deleting it (with the app stopped) forgets them and nothing else.
 
 ## Checking the models
 

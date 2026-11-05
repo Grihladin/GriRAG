@@ -78,6 +78,7 @@ def config(deps: DepsDep):
         "answer": {"model": c.answer_model, "temperature": c.answer_temperature,
                    "reasoning_effort": c.answer_reasoning_effort or None, "pages": c.answer_pages,
                    "max_tokens": c.answer_max_tokens},
+        "agent": {"model": c.agent_model, "temperature": c.agent_temperature, "max_steps": c.agent_max_steps},
         "embedding": {"model": c.embed_model, "batch_pages": c.embed_batch_pages,
                       "query_type": c.embed_query_type, "passage_mode": c.passage_mode},
         "pages": {"longest_edge_px": c.page_longest_edge_px, "jpeg_quality": c.jpeg_quality,

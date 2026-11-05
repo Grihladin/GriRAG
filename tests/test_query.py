@@ -1,5 +1,6 @@
 import base64
 import dataclasses
+import json
 
 import httpx
 import pymupdf
@@ -154,6 +155,20 @@ def test_error_inside_200(cfg, clock):
         orr.chat("m", [], max_tokens=10)
 
 
+def test_no_output_limit_is_left_out_of_the_request(cfg, clock):
+    sent = []
+    resp = {"choices": [{"message": {"content": "ok"}}], "model": "m"}
+
+    def handler(r):
+        sent.append(json.loads(r.content))
+        return httpx.Response(200, json=resp)
+
+    orr, _ = make(cfg, clock, handler)
+    orr.chat("m", [], max_tokens=None)
+    orr.chat("m", [], max_tokens=10)
+    assert "max_tokens" not in sent[0] and sent[1]["max_tokens"] == 10
+
+
 def test_empty_content_with_length(cfg, clock):
     resp = {"choices": [{"message": {"content": ""}, "finish_reason": "length"}], "model": "m"}
     orr, _ = make(cfg, clock, lambda r: httpx.Response(200, json=resp))
@@ -283,6 +298,7 @@ def test_ask_sends_best_pages_with_labels(deps, conn):
     query_matching(deps, 1, 2)
     deps.openrouter.reply = "<think>let me look</think>\nThe total is 4,312 EUR [S1]."
     result = ask(deps, conn, " What is the invoice total? ")
+    assert deps.openrouter.max_tokens == 8192
     assert isinstance(result, Answer)
     assert result.text == "The total is 4,312 EUR [S1]." and result.model == deps.cfg.answer_model
     assert deps.openrouter.reasoning_effort == deps.cfg.answer_reasoning_effort

@@ -87,6 +87,7 @@ class FakeOpenRouter:
 
     def chat(self, model, messages, *, max_tokens, reasoning_effort=None, temperature=0.4):
         self.chats.append(messages)
+        self.max_tokens = max_tokens
         self.reasoning_effort = reasoning_effort
         self.temperature = temperature
         if self.error:

@@ -9,13 +9,14 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from qdrant_client import QdrantClient
 
 from app.backend import api, store, worker
 from app.backend.config import check_key, load_config, setup_logging
 from app.backend.deps import Deps
 from app.backend.errors import Paused
-from app.backend.rag import vectors
+from app.backend.rag import agent, vectors
 from app.backend.rag.embedder import OpenRouterEmbedder
 from app.backend.rag.openrouter import OpenRouter
 
@@ -54,7 +55,9 @@ async def lifespan(app: FastAPI):
     if not (UI_DIST / "index.html").exists():
         log.warning("app/frontend/dist not built; run `npm run build` in app/frontend (or use the Vite dev server)")
     try:
-        yield
+        async with AsyncSqliteSaver.from_conn_string(str(cfg.data_dir / "agent.db")) as checkpointer:
+            app.state.agent = agent.build(deps, checkpointer)    # Research conversations
+            yield
     finally:
         stop.set()
         deps.wake.set()
@@ -64,6 +67,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(api.router)
+app.include_router(agent.router)
 if (UI_DIST / "index.html").exists():
     # The built UI, matched after every route and mount. A page load of a client route like /library gets index.html.
     app.frontend("/", directory=UI_DIST)

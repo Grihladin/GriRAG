@@ -49,7 +49,8 @@ Your library lives in `data/`. `make down` stops everything; after a `git pull`,
 
 ## Limitations
 
-- No OCR, keyword search or follow-up questions.
+- No OCR or keyword search. Follow-up questions are in Research mode, which costs several model calls a
+  question.
 - Answers read the 8 best pages (`ANSWER_PAGES`), so facts spread over more pages can be missed.
 - Web pages keep their first 50 pages; logged-in and paywalled sites index the login page.
 - A web page is captured once, when added: later changes to the site don't reach the library. Delete it and add

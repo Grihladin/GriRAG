@@ -78,12 +78,41 @@ Body: `{"q": "What is the invoice total?"}`
 `sources[0]` is `[S1]`. `groups` is the search result the answer was built from. On failure `answer` is `null`
 and `message` says why. Never retried automatically.
 
+## Research
+
+The [Research](/search-and-answers#research) conversation, in assistant-ui's
+[Assistant Transport](https://www.assistant-ui.com/docs/runtimes/custom/assistant-transport) protocol
+(`app/backend/rag/agent.py`). The state is `{"messages": [...]}`, a list of LangChain message dicts
+(`type` `human`, `ai` or `tool`).
+
+### `POST /api/agent`
+
+The body `useAssistantTransportRuntime` sends, plus the conversation id:
+
+```json
+{"thread_id": "m3k2x9ab12cd",
+ "state": {"messages": [...]},
+ "commands": [{"type": "add-message",
+               "message": {"role": "user", "id": "u7", "parts": [{"type": "text", "text": "And when is it due?"}]}}]}
+```
+
+Only `add-message` commands are used; other fields are ignored. The response is a server-sent event stream
+(`text/event-stream`): `update-state` events that add the question and then patch the state as the agent's
+messages and tool results arrive, and a final `data: [DONE]`. A failed turn ends with an `error` event whose text
+is shown in the UI, such as "The agent model failed: out of credits (…)". Each turn runs the agent once on the
+saved conversation; never retried automatically.
+
+### `GET /api/agent/{thread_id}`
+
+The saved conversation, `{"messages": [...]}` in the same shape; `{"messages": []}` for an unknown id. The UI
+loads it when it opens `/research?t=…`.
+
 ## Settings and quota
 
 ### `GET /api/config`
 
-The settings that shape answers and search, read-only: answer model and parameters, embedding model and modes,
-page sizes, limits. Never the API key.
+The settings that shape answers and search, read-only: answer model and parameters, the Research agent's model,
+temperature and step limit, embedding model and modes, page sizes, limits. Never the API key.
 
 ### `GET /api/quota`
 

@@ -10,6 +10,10 @@ dependencies = [
   "httpx==0.28.1",
   "qdrant-client==1.20.0",      # matches the server; search() is gone, use query_points*()
   "pymupdf==1.28.2",            # newest 1.x, no dependencies; AGPL (fine for personal use)
+  "deepagents==0.7.32",          # the Research agent (pulls langchain, langgraph)
+  "langchain-openrouter==0.2.9",  # ChatOpenRouter, the agent model
+  "langgraph-checkpoint-sqlite==3.1.3",  # conversations in data/agent.db
+  "assistant-stream==0.0.36",    # assistant-ui's streaming protocol for /api/agent
 ]
 
 [dependency-groups]
@@ -28,4 +32,6 @@ extend-select = ["FAST"]         # FastAPI rules, e.g. dependencies declared wit
 pythonpath = ["."]              # package = false: without this, `import app` fails at collection
 testpaths = ["tests"]
 filterwarnings = ["ignore:builtin type (SwigPy|swigvarlink):DeprecationWarning",
-                  "ignore:Using `httpx` with `starlette.testclient`"]
+                  "ignore:Using `httpx` with `starlette.testclient`",
+                  "ignore:Core Pydantic V1 functionality:UserWarning",          # langchain-core on Python 3.14
+                  "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning"]   # langsmith
