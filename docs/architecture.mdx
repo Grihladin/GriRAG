@@ -131,7 +131,7 @@ tests/              unit tests with fakes for OpenRouter, Gotenberg and Qdrant; 
   uv and copies in the backend and the built UI. The image holds no data and no secrets: `data/` is mounted at
   `/data`, and `.env` is passed in as environment variables.
 - **Gotenberg** is locked down: Chromium may not reach private addresses (it runs without a sandbox, so this keeps
-  web pages away from Qdrant, your Mac and your LAN), common cookie-consent vendors are blocked so their banners
+  web pages away from Qdrant, your computer and your LAN), common cookie-consent vendors are blocked so their banners
   never load, only one Chromium runs at a time, and idle browsers shut down after 5 minutes.
 - **Qdrant** has telemetry and CORS turned off.
 - Memory limits: Gotenberg 2 GB, Qdrant 1 GB, app 1 GB.

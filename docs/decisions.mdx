@@ -25,7 +25,7 @@ need torch and about 4.3 GB of memory to run locally.
 | **Web pages are screenshotted, not printed to PDF** | You get the page as it looks on screen: no print styles, no page breaks cutting through content, no fixed header repeated on every page | Printing via Gotenberg's `convert/url`; one image per whole page (the embedder would shrink a long page until it's unreadable) |
 | **Links to PDF/Word files are downloaded**, not opened in Chromium | Headless Chromium either aborts a PDF response as a download or shows a viewer page | — |
 | **PyMuPDF for all images** | Streams one page at a time, needs no poppler, and slices screenshots too, so there is one imaging library | pdf2image + poppler (holds every page in memory), Pillow |
-| **Models through OpenRouter** | The 8 GB Mac can't run models next to Docker; changing a model is a config change | local models |
+| **Models through OpenRouter** | The 8 GB laptop it was built on can't run models next to Docker; changing a model is a config change | local models |
 | **Qdrant for vectors, SQLite for the catalog, plain folders for files** | Add and delete per document, no index rebuilds | FAISS (rebuilds everything, no delete); PixelRAG's server (reads its index once at startup); a second copy of each vector in SQLite |
 | **No pages table** | A page's file and point id follow from document id and page number; pages are embedded in order, so one counter is both progress and resume point | a row per page |
 | **The queue is a status column, plus one worker thread** | No extra service, survives restarts; the lock file keeps a second process away | Celery, RQ or arq (need Redis); FastAPI background tasks (lost on restart); a separate worker process (a second throttle) |

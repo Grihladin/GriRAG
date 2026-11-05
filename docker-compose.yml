@@ -11,7 +11,7 @@ services:
       CHROMIUM_MAX_CONCURRENCY: "1"
       CHROMIUM_IDLE_SHUTDOWN_TIMEOUT: "5m"
       LIBREOFFICE_IDLE_SHUTDOWN_TIMEOUT: "5m"
-      CHROMIUM_DENY_PRIVATE_IPS: "true"        # Chromium runs --no-sandbox; keeps pages away from Qdrant, the Mac, the LAN
+      CHROMIUM_DENY_PRIVATE_IPS: "true"        # Chromium runs --no-sandbox; keeps pages away from Qdrant, the host, the LAN
       LIBREOFFICE_DENY_PRIVATE_IPS: "true"
       # Default file:// rule first (setting the variable REPLACES Gotenberg's default list),
       # then common cookie-consent vendors, so their banners never load.

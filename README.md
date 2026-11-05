@@ -32,8 +32,9 @@ used; the answer prompt is adapted from its `SYSTEM_PROMPT_EVIDENCE_QA`.
 
 ## Quick start
 
-Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/), `make` (on a Mac: `xcode-select --install`)
-and an OpenRouter account with a few dollars of credit.
+Runs on macOS and Linux. Needs Docker ([Docker Desktop](https://www.docker.com/products/docker-desktop/), or on
+Linux Docker Engine with the Compose plugin), `make` (macOS: `xcode-select --install`; Debian/Ubuntu:
+`sudo apt install make`) and an OpenRouter account with a few dollars of credit.
 
 1. Clone and create the settings file:
    ```bash
@@ -41,7 +42,7 @@ and an OpenRouter account with a few dollars of credit.
    cp .env.example .env
    ```
 2. Create a key at https://openrouter.ai/settings/keys and put it into `.env` as `OPENROUTER_API_KEY`.
-3. Start it (the first build takes a few minutes; Docker Desktop is opened if it isn't running):
+3. Start it (the first build takes a few minutes; on macOS it opens Docker Desktop if needed):
    ```bash
    make up
    ```
@@ -77,7 +78,7 @@ cost. Models are set in `.env`; `.env.example` lists the options, including free
 ## Development
 
 Backend in `app/backend/` (Python 3.14, FastAPI; the RAG pipeline is in `app/backend/rag/`), UI in
-`app/frontend/` (React, Vite, Tailwind, shadcn/ui). Tests and lint run on your Mac and need
+`app/frontend/` (React, Vite, Tailwind, shadcn/ui). Tests and lint run on the host and need
 [uv](https://docs.astral.sh/uv/) and Node.js.
 
 | Command | What it does |

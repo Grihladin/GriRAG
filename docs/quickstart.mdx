@@ -3,8 +3,9 @@ title: "Quickstart"
 description: "Run GriRAG on your computer with Docker and an OpenRouter key."
 ---
 
-You need [Docker Desktop](https://www.docker.com/products/docker-desktop/), `make` (on a Mac:
-`xcode-select --install`) and an OpenRouter account with a few dollars of credit.
+GriRAG runs on macOS and Linux. You need Docker ([Docker Desktop](https://www.docker.com/products/docker-desktop/),
+or on Linux Docker Engine with the Compose plugin), `make` (macOS: `xcode-select --install`; Debian/Ubuntu:
+`sudo apt install make`) and an OpenRouter account with a few dollars of credit.
 
 <Steps>
   <Step title="Clone and create the settings file">
@@ -17,7 +18,7 @@ You need [Docker Desktop](https://www.docker.com/products/docker-desktop/), `mak
     Create a key at https://openrouter.ai/settings/keys and put it into `.env` as `OPENROUTER_API_KEY`.
   </Step>
   <Step title="Start it">
-    The first build takes a few minutes. Docker Desktop is opened if it isn't running.
+    The first build takes a few minutes. On macOS it opens Docker Desktop if needed.
     ```bash
     make up
     ```

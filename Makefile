@@ -5,9 +5,10 @@ export GRIRAG_HOME := $(or $(abspath $(dir $(shell git rev-parse --path-format=a
 APP = docker compose run --rm grirag python -m app.backend.cli
 .PHONY: up down test lint smoke reembed
 
-up:             ## build and start the app, Gotenberg and Qdrant on http://127.0.0.1:8000 (starts Docker Desktop if needed)
+up:             ## build and start the app, Gotenberg and Qdrant on http://127.0.0.1:8000 (opens Docker Desktop on macOS)
 	@test -f $(GRIRAG_HOME)/.env || (echo "No $(GRIRAG_HOME)/.env: cp .env.example .env and put your OPENROUTER_API_KEY in it" && exit 1)
-	@docker info >/dev/null 2>&1 || (open -ga Docker && until docker info >/dev/null 2>&1; do sleep 2; done)
+	@docker info >/dev/null 2>&1 || { [ "$$(uname)" = Darwin ] && open -ga Docker && until docker info >/dev/null 2>&1; do sleep 2; done; } \
+		|| (echo "Docker is not running: start it (on Linux: sudo systemctl start docker)" && exit 1)
 	docker compose up -d --build
 
 down:           ## stop everything (frees the Docker VM memory)
