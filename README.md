@@ -51,8 +51,27 @@ Your library lives in `data/`. `make down` stops everything; after a `git pull`,
 
 - No OCR, keyword search or follow-up questions.
 - Answers read the 8 best pages (`ANSWER_PAGES`), so facts spread over more pages can be missed.
-- Web pages keep their first 40 pages; logged-in and paywalled sites index the login page.
+- Web pages keep their first 50 pages; logged-in and paywalled sites index the login page.
+- A web page is captured once, when added: later changes to the site don't reach the library. Delete it and add
+  the link again to update it.
+- Web capture only scrolls the main page, so a saved page can miss content inside scrolling panels, behind clicks or
+  tabs, and rows that long lists drop once they scroll away. On a very slow load a chart can stay blank.
+- Files can only be PDF or Word (`.docx`), since almost anything can be converted to one of them.
 - No authentication: keep it on 127.0.0.1.
+
+## How safe is Gotenberg?
+
+Every link you add opens in a real browser and its scripts run there, and Word files go through LibreOffice, both
+inside the Gotenberg container. That makes it the riskiest part of GriRAG, so it is boxed in:
+
+- It cannot see `data/` or your OpenRouter key: nothing is mounted into it and the key reaches only the app.
+- It runs as a non-root user with `no-new-privileges` and a 2 GB memory limit, and its port listens on 127.0.0.1 only.
+- The browser refuses private addresses, so a page cannot load your network, your computer, Qdrant or the app.
+
+It is not a full sandbox. Chromium runs with `--no-sandbox`, so the container is the only wall, and the address rule
+binds the browser, not the container. A site that exploits a browser bug would get a shell there with internet
+access, and could reach Qdrant and the app directly. Neither has a login, so it could read or delete your library.
+Add links you trust, and keep Gotenberg up to date.
 
 ## License
 

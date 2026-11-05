@@ -205,7 +205,7 @@ from email.parser import BytesParser
 import httpx
 import pymupdf
 
-from app.backend.rag.convert import SCROLL_JS
+from app.backend.rag.convert import scroll_js
 from tests.conftest import mock_http
 
 
@@ -261,7 +261,7 @@ def test_url_screenshot_pipeline(deps, conn):
     parts = form_parts(call)
     assert {k: v for k, (_, v) in parts.items()} == {
         "url": "https://example.com/article", "width": "1120", "height": "1120", "clip": "false",
-        "format": "jpeg", "quality": "85", "emulatedMediaType": "screen", "waitForExpression": SCROLL_JS}
+        "format": "jpeg", "quality": "85", "emulatedMediaType": "screen", "waitForExpression": scroll_js(deps.cfg)}
     assert all(filename is None for filename, _ in parts.values())     # form fields, not files
     r = row(conn, 1)
     assert (r["status"], r["page_count"], r["title"]) == ("done", 3, "https://example.com/article")
@@ -349,6 +349,15 @@ def test_reembed(deps, conn, capsys):
     assert worker.run_one(deps, conn) == "done" and len(points(deps)) == 3      # re-embedded from the JPEGs
 
 
+def test_scroll_reaches_as_far_as_the_pages_kept(deps):
+    assert "n < 200;" in scroll_js(deps.cfg)
+    assert "n < 28;" in scroll_js(dataclasses.replace(deps.cfg, max_web_pages=7))
+
+
+def test_scroll_ignores_smooth_scrolling(deps):
+    assert scroll_js(deps.cfg).count("behavior: 'instant'") == 2
+
+
 def test_too_tall_page_falls_back_to_clipped_capture(deps, conn):
     web = FakeWeb(empty_unclipped=True)
     deps.http = mock_http(web)
@@ -356,6 +365,6 @@ def test_too_tall_page_falls_back_to_clipped_capture(deps, conn):
     assert worker.run_one(deps, conn) == "done"
     first, second = web.gotenberg_calls()
     assert form_parts(first)["clip"][1] == "false"
-    assert (form_parts(second)["clip"][1], form_parts(second)["height"][1]) == ("true", str(40 * 1120))
-    assert row(conn, 1)["warning"] == "page too tall to capture in one shot; only the first 40 pages are kept"
+    assert (form_parts(second)["clip"][1], form_parts(second)["height"][1]) == ("true", str(50 * 1120))
+    assert row(conn, 1)["warning"] == "page too tall to capture in one shot; only the first 50 pages are kept"
 

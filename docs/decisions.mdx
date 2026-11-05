@@ -76,8 +76,8 @@ line in the UI turn on only when a `:free` model is configured.
 
 - Gotenberg's `skipNetworkAlmostIdleEvent=false` made even `example.com` run into the 5-minute time limit, so it
   isn't sent; `SCROLL_JS` does the waiting.
-- A page too tall for one capture comes back as an **empty 200**, not an error. GriRAG then captures the top 40
-  slices with `clip=true`. Side effect: during that capture the window is 44,800 px tall, so sections sized in
+- A page too tall for one capture comes back as an **empty 200**, not an error. GriRAG then captures the top 50
+  slices with `clip=true`. Side effect: during that capture the window is 56,000 px tall, so sections sized in
   `vh` units stretch.
 - Since Gotenberg 8.34, images linked (not embedded) in Word files are dropped.
 - LibreOffice picks the input format from the file extension, so uploads keep theirs (`original.docx`).

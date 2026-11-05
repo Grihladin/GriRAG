@@ -44,14 +44,20 @@ Every document has to end up as either a PDF (`doc.pdf`) or one tall screenshot 
 and captures the whole page as one JPEG. Before the capture, a small script (`SCROLL_JS` in `rag/convert.py`):
 
 1. switches lazy images to eager;
-2. scrolls down one window height at a time, at most 40 steps, so lazy content loads;
+2. scrolls down one window height at a time, jumping instantly even on sites that set smooth scrolling, at most four
+   steps per page in `MAX_WEB_PAGES` (200 steps at the default of 50), so lazy content loads as far as the pages kept.
+   Gotenberg applies the capture size only after this script, so it scrolls in a 780×437 window;
 3. scrolls back to the top and waits up to 5 seconds for fonts and images.
 
 Sticky headers and fixed elements appear once, not on every page, because it is one screenshot.
 
+The script only scrolls the main page. Content inside a scrolling panel or behind a click or tab stays unloaded, and
+lists that drop rows once they scroll away show only the rows on screen at the end. A chart can also stay blank if the
+page loads so slowly that its code starts after the scroll has passed it.
+
 **Very tall pages.** Chromium returns an empty image for a page too tall to capture in one shot. The app then
-captures again, cropped to the top 40 pages (`MAX_WEB_PAGES × WEB_SLICE_HEIGHT` = 44,800 px), and the document
-gets the warning "page too tall to capture in one shot; only the first 40 pages are kept".
+captures again, cropped to the top 50 pages (`MAX_WEB_PAGES × WEB_SLICE_HEIGHT` = 56,000 px), and the document
+gets the warning "page too tall to capture in one shot; only the first 50 pages are kept".
 
 Files are written under a temporary name and then renamed, so "the file exists" always means it is complete.
 
@@ -63,7 +69,7 @@ PyMuPDF is the only imaging library.
   85. One page is in memory at a time. A page more than three times as tall as it is wide gets a warning ("text may
   be unreadable"), because the embedder shrinks it into a single image.
 - **Web screenshots**: cut into 1120 × 1120 px pages (`WEB_SLICE_HEIGHT`), top to bottom, without overlap. A last
-  strip under 28 px is dropped, and only the first 40 pages are kept.
+  strip under 28 px is dropped, and only the first 50 pages (`MAX_WEB_PAGES`) are kept.
 
 A PDF that cannot be opened, is password-protected, or has more than `MAX_PAGES` (500) pages fails here.
 

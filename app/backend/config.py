@@ -27,7 +27,7 @@ class Config:
     page_longest_edge_px: int = 1536
     jpeg_quality: int = 85
     max_pages: int = 500                     # must stay <= 9999 (point id = doc_id * 10000 + page)
-    max_web_pages: int = 40
+    max_web_pages: int = 50
     max_upload_mb: int = 200
     search_groups: int = 10
     office_extensions: frozenset = frozenset({".docx"})
