@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router'
+import { createRootRoute, createRoute, createRouter, lazyRouteComponent, RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AppShell } from '@/components/app-shell'
@@ -13,9 +13,19 @@ const askRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: AskPage,
-  validateSearch: (s: Record<string, unknown>): { q?: string; mode?: 'search' } => ({
+  validateSearch: (s: Record<string, unknown>): { q?: string } => ({
     q: typeof s.q === 'string' && s.q.trim() ? s.q : undefined,
-    mode: s.mode === 'search' ? 'search' : undefined,
+  }),
+})
+// t: the conversation (a thread id the page makes up); q: a first question, sent once, from the Ask box.
+// Loaded on first use: assistant-ui is most of the UI's code.
+const researchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/research',
+  component: lazyRouteComponent(() => import('@/components/research-page'), 'ResearchPage'),
+  validateSearch: (s: Record<string, unknown>): { t?: string; q?: string } => ({
+    t: typeof s.t === 'string' && s.t ? s.t : undefined,
+    q: typeof s.q === 'string' && s.q.trim() ? s.q : undefined,
   }),
 })
 const libraryRoute = createRoute({
@@ -32,7 +42,7 @@ const docRoute = createRoute({
     return Number.isInteger(page) && page > 0 ? { page } : {}
   },
 })
-const router = createRouter({ routeTree: rootRoute.addChildren([askRoute, libraryRoute, docRoute]) })
+const router = createRouter({ routeTree: rootRoute.addChildren([askRoute, researchRoute, libraryRoute, docRoute]) })
 
 declare module '@tanstack/react-router' {
   interface Register {

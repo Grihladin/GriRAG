@@ -19,7 +19,7 @@ pictures.
 | **Qdrant** 1.20.0 | Docker, port 6333 | Stores one vector per page and finds the pages closest to a question |
 | **SQLite** | inside the app, files `data/app.db` and `data/agent.db` | The document catalog and the job queue, in one table; Research conversations |
 | **OpenRouter** | remote API | Embeds pages and questions, and runs the answer and agent models |
-| **UI** (React, Vite, Tailwind, shadcn/ui) | built into the app image, served at `/` | Ask, Search, Library, Add, Settings |
+| **UI** (React, Vite, Tailwind, shadcn/ui, assistant-ui) | built into the app image, served at `/` | Ask, Search, Research, Library, Add, Settings |
 
 All ports listen on 127.0.0.1 only. There is no login, so GriRAG must not be exposed to a network.
 
@@ -122,7 +122,8 @@ app/backend/
     ├── search.py   question → best pages, grouped by document
     ├── answer.py   best pages → answer with [S1] citations; read() is the vision call Research reuses
     └── agent.py    Research: the deepagents agent, its two tools, and /api/agent
-app/frontend/src/   the React UI; components/ has one file per view or widget
+app/frontend/src/   the React UI; components/ has one file per view or widget; components/assistant-ui/ is
+                    assistant-ui's chat thread, installed from its shadcn registry and restyled
 tests/              unit tests with fakes for OpenRouter, Gotenberg and Qdrant; no network
 ```
 

@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { ArrowRightIcon, RotateCwIcon, SearchIcon, SparklesIcon } from 'lucide-react'
+import { ArrowRightIcon, MessagesSquareIcon, RotateCwIcon, SparklesIcon } from 'lucide-react'
 import { api, type AskResult } from '@/api'
 import { AddPanel } from '@/components/add-panel'
 import { AnswerView } from '@/components/answer-view'
@@ -19,16 +19,14 @@ import { isProcessing, useLibrary } from '@/lib/library'
 import { useSlashFocus, useTitle } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
 
-type Mode = 'ask' | 'search'
-
-// "/": ask (default) or search. The question is in the URL (?q=…&mode=search), so Back/Forward work;
-// results stay cached for the session, so coming back from a document does not ask again.
+// "/": ask. The question is in the URL (?q=…), so Back/Forward work; answers stay cached for the session, so
+// coming back from a document does not ask again.
 export function AskPage() {
-  const { q, mode = 'ask' } = useSearch({ from: '/' })
+  const { q } = useSearch({ from: '/' })
   const library = useLibrary()
   const quota = useQuery({ queryKey: ['quota'], queryFn: api.quota })
   useTitle(q || 'Ask')
-  if (q) return <Results key={`${mode}:${q}`} q={q} mode={mode} quota={quota.data?.quota} />
+  if (q) return <Results key={q} q={q} quota={quota.data?.quota} />
   if (library.isSuccess && !library.data.docs.length) return <FirstRun />
   const docs = library.data?.docs ?? []
   const processing = docs.filter(isProcessing).length
@@ -40,11 +38,11 @@ export function AskPage() {
             Ask your documents
           </h1>
           <p className="max-w-[58ch] text-pretty text-muted-foreground">
-            Ask gets an answer read from your best-matching pages, with every statement linked to its page. Search
-            only finds the pages.
+            Ask a quick question about your docs, or have a conversation with a deep agent in Research mode. Every
+            answer is based on your documents and links to the pages it comes from.
           </p>
         </div>
-        <AskForm mode={mode} />
+        <AskForm />
         {quota.data?.quota && <p className="text-xs text-muted-foreground">{quota.data.quota}</p>}
       </div>
       {docs.length > 0 && <LightTable docs={docs} processing={processing} />}
@@ -74,11 +72,10 @@ function FirstRun() {
 const modeItem =
   'h-full rounded-md px-3 text-muted-foreground hover:text-foreground data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm max-sm:flex-1'
 
-function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
+function AskForm({ q = '' }: { q?: string }) {
   const navigate = useNavigate({ from: '/' })
   const queryClient = useQueryClient()
   const [text, setText] = useState(q)
-  const [m, setM] = useState(mode)
   const input = useRef<HTMLInputElement>(null)
 
   useSlashFocus(input)
@@ -88,11 +85,11 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
     const next = text.trim()
     if (!next) return
     // Submitting a question (again) is an explicit request for a fresh answer; Back/Forward reuse the cache.
-    if (next === q && m === mode) {
-      queryClient.refetchQueries({ queryKey: [m, q] }, { cancelRefetch: false })
+    if (next === q) {
+      queryClient.refetchQueries({ queryKey: ['ask', q] }, { cancelRefetch: false })
     } else {
-      queryClient.removeQueries({ queryKey: [m, next], exact: true })
-      navigate({ search: { q: next, mode: m === 'search' ? 'search' : undefined } })
+      queryClient.removeQueries({ queryKey: ['ask', next], exact: true })
+      navigate({ search: { q: next } })
     }
   }
 
@@ -107,7 +104,7 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
         autoFocus
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder={m === 'ask' ? 'Ask a question about your documents' : 'Search your documents'}
+        placeholder="Ask a question about your documents"
         aria-label="Question"
         aria-keyshortcuts="/"
         className="h-10 flex-1 border-0 bg-transparent px-3 shadow-none focus-visible:ring-0 sm:h-11 md:text-base dark:bg-transparent"
@@ -115,12 +112,12 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
       <ToggleGroup
         type="single"
         spacing={0.5}
-        value={m}
+        value="ask"
         onValueChange={(v) => {
-          if (!v) return
-          setM(v as Mode)
-          // On a results page the toggle switches what is shown, like tabs.
-          if (q && text.trim() === q) navigate({ search: { q, mode: v === 'search' ? 'search' : undefined } })
+          // Research is its own page. A question typed (and not yet asked here) starts a new conversation with it;
+          // otherwise the conversation last open comes back.
+          const next = text.trim()
+          if (v === 'research') navigate({ to: '/research', search: { q: next && next !== q ? next : undefined } })
         }}
         aria-label="Mode"
         className="h-10 rounded-lg bg-muted p-[3px] max-sm:order-last max-sm:w-full sm:h-11"
@@ -128,16 +125,16 @@ function AskForm({ q = '', mode }: { q?: string; mode: Mode }) {
         <ToggleGroupItem value="ask" className={modeItem}>
           <SparklesIcon /> Ask
         </ToggleGroupItem>
-        <ToggleGroupItem value="search" className={modeItem}>
-          <SearchIcon /> Search
+        <ToggleGroupItem value="research" className={modeItem}>
+          <MessagesSquareIcon /> Research
         </ToggleGroupItem>
       </ToggleGroup>
       <Button
         type="submit"
         size="icon-lg"
         className="size-10 rounded-lg sm:size-11"
-        aria-label={m === 'ask' ? 'Ask' : 'Search'}
-        title={m === 'ask' ? 'Ask' : 'Search'}
+        aria-label="Ask"
+        title="Ask"
       >
         <ArrowRightIcon />
       </Button>
@@ -150,11 +147,11 @@ const row = 'flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:just
 // Messages from the server (app/backend/rag/search.py, answer.py) that trying again right away cannot change.
 const final = /^(No matching pages|No documents yet|Type a question|Daily free limit)/
 
-function Results({ q, mode, quota }: { q: string; mode: Mode; quota?: string | null }) {
+function Results({ q, quota }: { q: string; quota?: string | null }) {
   const queryClient = useQueryClient()
   const [viewer, setViewer] = useState<ViewerPage | null>(null)
   const refreshQuota = () => void queryClient.invalidateQueries({ queryKey: ['quota'] })
-  // Only the query for the current mode runs. Asking is never retried automatically.
+  // Asking is never retried automatically.
   const ask = useQuery({
     queryKey: ['ask', q],
     queryFn: async () => {
@@ -163,45 +160,35 @@ function Results({ q, mode, quota }: { q: string; mode: Mode; quota?: string | n
       const prev = queryClient.getQueryData<AskResult>(['ask', q])
       return r.answer || !prev?.answer ? r : { ...prev, message: r.message }
     },
-    enabled: mode === 'ask',
     ...forever,
   })
-  const search = useQuery({
-    queryKey: ['search', q],
-    queryFn: () => api.search(q).finally(refreshQuota),
-    enabled: mode === 'search',
-    ...forever,
-  })
-  const query = mode === 'ask' ? ask : search
-  const groups = query.data?.groups ?? []
-  const message = query.data?.message
+  const groups = ask.data?.groups ?? []
+  const message = ask.data?.message
   const empty =
     message === 'No matching pages.'
       ? `No pages match “${q}”.`
       : message === 'No documents yet.' && 'No documents yet. Add PDFs, Word files or links first.'
   const matches = groups.length === 1 ? '1 document matches' : `${groups.length} documents match`
-  const tryAgain = <TryAgain busy={query.isFetching} onClick={() => query.refetch({ cancelRefetch: false })} />
+  const tryAgain = <TryAgain busy={ask.isFetching} onClick={() => ask.refetch({ cancelRefetch: false })} />
 
   return (
     <div className="space-y-6">
       <h1 className="sr-only">{q}</h1>
-      <AskForm q={q} mode={mode} />
+      <AskForm q={q} />
       <p role="status" className="sr-only">
-        {query.isFetching
-          ? mode === 'ask'
-            ? 'Reading the best pages…'
-            : 'Searching…'
-          : mode === 'ask' && ask.data?.answer
+        {ask.isFetching
+          ? 'Reading the best pages…'
+          : ask.data?.answer
             ? 'Answer ready'
             : groups.length
               ? matches
               : empty || ''}
       </p>
-      {query.isPending && <Loading mode={mode} />}
-      {query.error && (
+      {ask.isPending && <Loading />}
+      {ask.error && (
         <Warning error>
           <span className={row}>
-            {mode === 'ask' ? 'Could not get an answer' : 'Search failed'} ({query.error.message}).
+            Could not get an answer ({ask.error.message}).
             {tryAgain}
           </span>
         </Warning>
@@ -218,7 +205,7 @@ function Results({ q, mode, quota }: { q: string; mode: Mode; quota?: string | n
           </Warning>
         )
       )}
-      {mode === 'ask' && ask.data?.answer && (
+      {ask.data?.answer && (
         <Card className={ask.isFetching ? 'opacity-60' : ''}>
           <CardContent className="space-y-4">
             <AnswerView answer={ask.data.answer} onOpen={setViewer} />
@@ -240,8 +227,8 @@ function Results({ q, mode, quota }: { q: string; mode: Mode; quota?: string | n
         </Card>
       )}
       {groups.length > 0 && (
-        <section className={cn('space-y-3', query.isFetching && !query.isPending && 'opacity-60')}>
-          <h2 className="text-sm font-medium text-muted-foreground">{mode === 'ask' ? 'All matching pages' : matches}</h2>
+        <section className={cn('space-y-3', ask.isFetching && !ask.isPending && 'opacity-60')}>
+          <h2 className="text-sm font-medium text-muted-foreground">All matching pages</h2>
           <SearchResults groups={groups} onOpen={setViewer} />
         </section>
       )}
@@ -250,13 +237,13 @@ function Results({ q, mode, quota }: { q: string; mode: Mode; quota?: string | n
   )
 }
 
-function Loading({ mode }: { mode: Mode }) {
+function Loading() {
   return (
     <Card>
       <CardContent className="space-y-3">
         <p className="flex items-start gap-2 text-sm text-muted-foreground [&>svg]:mt-0.5">
           <Spinner />
-          {mode === 'ask' ? 'Reading the best pages. This takes a few seconds.' : 'Searching…'}
+          Reading the best pages. This takes a few seconds.
         </p>
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />

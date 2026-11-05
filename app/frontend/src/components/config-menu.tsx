@@ -52,6 +52,10 @@ function Settings({ c }: { c: Config }) {
         <Row label="Pages read per answer">{c.answer.pages}</Row>
         <Row label="Longest answer">{n(c.answer.max_tokens)} tokens</Row>
       </Group>
+      <Group title="Research agent" model={c.agent.model}>
+        <Row label="Temperature">{c.agent.temperature}</Row>
+        <Row label="Steps per question">{c.agent.max_steps}</Row>
+      </Group>
       <Group title="Search index" model={c.embedding.model}>
         <Row label="Pages per request">{c.embedding.batch_pages}</Row>
         <Row label="Query type">{c.embedding.query_type}</Row>

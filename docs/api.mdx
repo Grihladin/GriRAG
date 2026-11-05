@@ -125,8 +125,9 @@ temperature and step limit, embedding model and modes, page sizes, limits. Never
 
 ## UI routes
 
-Everything else serves the built UI. Its own routes: `/` (Ask; `?q=…&mode=search`), `/library`, and
-`/docs/{id}` (`?page=N` opens the page viewer). Reloading any of them returns `index.html`.
+Everything else serves the built UI. Its own routes: `/` (Ask; `?q=…`), `/research` (`?t=…` is the
+conversation; `?q=…` starts a new one with that question), `/library`, and `/docs/{id}` (`?page=N` opens the
+page viewer). Reloading any of them returns `index.html`.
 
 During UI development, `npm run dev` in `app/frontend` serves the UI on port 5173 and forwards `/api` and `/files`
 to the app on port 8000.

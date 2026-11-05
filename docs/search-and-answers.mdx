@@ -3,20 +3,22 @@ title: "Search and answers"
 description: "How a question finds pages and how the answer is made."
 ---
 
-The home page has one box with two modes. **Ask** answers the question with citations; **Search** only finds
-pages and never calls the answer model. The question is part of the URL (`/?q=…`, plus `&mode=search`), so a
-result can be bookmarked; reloading the page asks again.
+The home page has one box with two modes. **Ask** answers the question with citations. The question is part of the
+URL (`/?q=…`), so an answer can be bookmarked; reloading the page asks again. **Research** opens a conversation
+with an agent that searches and reads in several steps and takes follow-up questions ([below](#research)). The Ask
+and Research links go back to where each was left: the last answer (still cached, so not asked again) and the
+conversation last open.
 
 ## Search
 
 1. **Embed the question** with the same model as the pages, in "query" mode (`EMBED_QUERY_TYPE`). The last 256
-   questions are cached, so asking again or switching between Ask and Search costs no extra request.
+   questions are cached, so asking again costs no extra request.
 2. **Ask Qdrant for grouped results**: the `SEARCH_GROUPS` (10) best documents, each with up to
    `max(ANSWER_PAGES, 3)` (8) of its best pages, ranked by cosine similarity.
 3. **Join the catalog** for title, kind and link. A hit whose document was just deleted is dropped.
 
-The UI shows the results as page thumbnails grouped by document, best document first. Clicking a page opens it
-large, with ← and → through its document.
+Ask shows the results below its answer as page thumbnails grouped by document, best document first. Clicking a
+page opens it large, with ← and → through its document.
 
 ## Ask
 
