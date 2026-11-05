@@ -13,8 +13,8 @@ description: "Running, updating, backing up, re-embedding, and fixing problems."
 
 `make up` checks that `.env` exists first. Run it again after a `git pull`, a code change, or a change to `.env`.
 
-Bare `docker compose up -d --build` (as in the README's quick start) works the same in the main checkout. In a
-git worktree, use `make` (below).
+Bare `docker compose up -d --build` works the same in the main checkout, but not in a git worktree (below), so
+prefer `make up`.
 
 ## Working in a git worktree
 

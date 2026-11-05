@@ -3,8 +3,8 @@ title: "Quickstart"
 description: "Run GriRAG on your computer with Docker and an OpenRouter key."
 ---
 
-You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) and an OpenRouter account with a few
-dollars of credit.
+You need [Docker Desktop](https://www.docker.com/products/docker-desktop/), `make` (on a Mac:
+`xcode-select --install`) and an OpenRouter account with a few dollars of credit.
 
 <Steps>
   <Step title="Clone and create the settings file">
@@ -17,9 +17,9 @@ dollars of credit.
     Create a key at https://openrouter.ai/settings/keys and put it into `.env` as `OPENROUTER_API_KEY`.
   </Step>
   <Step title="Start it">
-    The first build takes a few minutes.
+    The first build takes a few minutes. Docker Desktop is opened if it isn't running.
     ```bash
-    docker compose up -d --build
+    make up
     ```
   </Step>
   <Step title="Add a document and ask">
@@ -28,7 +28,7 @@ dollars of credit.
   </Step>
 </Steps>
 
-Your library lives in `data/`. `docker compose stop` stops everything; after a `git pull`, run step 3 again.
+Your library lives in `data/`. `make down` stops everything; after a `git pull`, run `make up` again.
 
 <Warning>
   There is no login. Keep GriRAG on 127.0.0.1 and don't expose it to a network.
@@ -43,7 +43,7 @@ Your library lives in `data/`. `docker compose stop` stops everything; after a `
 - **Ask** a question to get an answer with citations. Sources shows the pages it cited, and every matching page
   follows below; click a page to see it large. **Search** finds pages without calling the answer model.
 - **Library** lists every document with its status, with Retry and Delete.
-- **Settings** shows the models and limits. Change them in `.env`, then run `docker compose up -d`.
+- **Settings** shows the models and limits. Change them in `.env`, then run `make up`.
 
 ## Cost
 

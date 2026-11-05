@@ -32,8 +32,8 @@ used; the answer prompt is adapted from its `SYSTEM_PROMPT_EVIDENCE_QA`.
 
 ## Quick start
 
-Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) and an OpenRouter account with a few
-dollars of credit.
+Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/), `make` (on a Mac: `xcode-select --install`)
+and an OpenRouter account with a few dollars of credit.
 
 1. Clone and create the settings file:
    ```bash
@@ -41,14 +41,14 @@ dollars of credit.
    cp .env.example .env
    ```
 2. Create a key at https://openrouter.ai/settings/keys and put it into `.env` as `OPENROUTER_API_KEY`.
-3. Start it (the first build takes a few minutes):
+3. Start it (the first build takes a few minutes; Docker Desktop is opened if it isn't running):
    ```bash
-   docker compose up -d --build
+   make up
    ```
 4. Open http://127.0.0.1:8000, click **Add**, drop in a PDF or paste a link, and ask a question once its status
    is ready.
 
-Your library lives in `data/`. `docker compose stop` stops everything; after a `git pull`, run step 3 again.
+Your library lives in `data/`. `make down` stops everything; after a `git pull`, run `make up` again.
 
 ## Using it
 
@@ -59,30 +59,13 @@ Your library lives in `data/`. `docker compose stop` stops everything; after a `
 - **Ask** a question to get an answer with citations. Sources shows the pages it cited, and every matching
   page follows below; click a page to see it large. **Search** finds pages without calling the answer model.
 - **Library** lists every document with its status, with Retry and Delete.
-- **Settings** shows the models and limits. Change them in `.env`, then run `docker compose up -d`.
+- **Settings** shows the models and limits. Change them in `.env`, then run `make up`.
 
 ## Models and cost
 
 Pages are embedded with `voyageai/voyage-multimodal-3.5` (about $1 per 1,000 pages) and questions answered by
 `meta/muse-spark-1.3-contributor` (under $0.001 each), both through OpenRouter. Every call is logged with its
 cost. Models are set in `.env`; `.env.example` lists the options, including free ones.
-
-## Commands
-
-| Command | What it does |
-| --- | --- |
-| `docker compose up -d --build` | Builds and starts the app, Gotenberg and Qdrant |
-| `docker compose stop` | Stops them |
-| `docker compose logs -f grirag` | Shows the app's log, with the cost of every model call |
-
-Re-embedding every page (after changing the embedding model, or after losing the Qdrant data) asks first and
-needs the app stopped:
-
-```bash
-docker compose stop grirag
-docker compose run --rm grirag python -m app.backend.cli reembed
-docker compose up -d
-```
 
 ## Limitations
 
@@ -101,7 +84,7 @@ Backend in `app/backend/` (Python 3.14, FastAPI; the RAG pipeline is in `app/bac
 | --- | --- |
 | `make up` | Builds and starts everything; run it again after a code change |
 | `make down` | Stops everything |
-| `make reembed` | Re-embeds every page (stops the app; asks first) |
+| `make reembed` | Re-embeds every page after changing the embedding model (stops the app; asks first) |
 | `make smoke` | Checks both models live (about $0.01) |
 | `make test` | Unit tests, no network or Docker |
 | `make lint` | Ruff and Oxlint |
