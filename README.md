@@ -53,6 +53,7 @@ Your library lives in `data/`. `make down` stops everything; after a `git pull`,
 - No OCR or keyword search. Follow-up questions are in Research mode, which costs several model calls a
   question.
 - Answers read the 8 best pages (`ANSWER_PAGES`), so facts spread over more pages can be missed.
+- No web search, on purpose: answers come only from the documents in your library, not from the web.
 - Web pages keep their first 50 pages; logged-in and paywalled sites index the login page.
 - A web page is captured once, when added: later changes to the site don't reach the library. Delete it and add
   the link again to update it.

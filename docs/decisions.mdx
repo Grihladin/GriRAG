@@ -38,6 +38,7 @@ built specifically for this kind of task, performs far better and takes larger i
 | **Research is a second mode; Ask stays one-shot** | Ask is the cheap path (one search, one answer); the agent costs several model calls per question, so it is opt-in |
 | **The agent is deepagents on LangGraph**, in the app process | Ready-made agent loop, tool calling and checkpoints; conversations persist in SQLite (`data/agent.db`) with no extra service |
 | **The agent model never sees pages**; `read_pages` sends them to `ANSWER_MODEL` | Any cheap tool-calling model can plan; reading stays with the vision model and the prompt Ask already uses |
+| **No web search**, in Ask or Research | GriRAG is for looking through your own small set of documents and answering from them, not for finding an answer on the web |
 | **Citations are page ids** (`[#120003]`, the Qdrant point id) | Stable for the whole conversation, so follow-ups can cite earlier pages with no extra state; the UI turns them into S1, S2, … |
 | **assistant-ui with its Assistant Transport protocol** (`assistant-stream` on the server) | I love it ❤️ Ready chat thread, streaming, tool-call UIs and LangChain message conversion, behind our own FastAPI route |
 
